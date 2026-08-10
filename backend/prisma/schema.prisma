@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String?   @unique
+  password      String?
+  name          String?
+  avatar        String?
+  googleId      String?   @unique
+  githubId      String?   @unique
+  provider      String?   @default("local")
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  conversations Conversation[]
+  messages      Message[]
+  files         File[]
+  refreshTokens RefreshToken[]
+  usageStats    UsageStat[]
+  languageColors LanguageColor[]
+
+  @@map("users")
+}
+
+// Per-user badge colors for spoken-reply languages, synced across devices.
+model LanguageColor {
+  userId   String
+  language String
+  color    String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, language])
+  @@map("language_colors")
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  title     String   @default("New Chat")
+  userId    String
+  isPinned  Boolean  @default(false)
+  isArchived Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId])
+  @@index([isPinned])
+  @@index([isArchived])
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  content        String   @db.Text
+  role           String   // user | assistant | system
+  model          String?
+  language       String?  // spoken/reply language code (e.g. "te") so replays use the original voice
+  conversationId String
+  userId         String?
+  fileId         String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  file         File?         @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId])
+  @@index([userId])
+  @@map("messages")
+}
+
+model File {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  extractedText String? @db.Text
+  userId       String
+  conversationId String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@index([userId])
+  @@map("files")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model UsageStat {
+  id        String   @id @default(uuid())
+  userId    String
+  model     String
+  tokens    Int      @default(0)
+  type      String   // chat | image | video
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("usage_stats")
+}

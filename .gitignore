@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker
+postgres_data/
+redis_data/
+file_processor_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Runtime caches & temp test artifacts
+backend/data/tts-cache/
+backend/nv-flux-test.jpg
+backend/nvimg.sh
+backend/reqid2.txt
+backend/veo-watch.mjs

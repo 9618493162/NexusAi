@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexusai_postgres
+    environment:
+      POSTGRES_USER: nexusai
+      POSTGRES_PASSWORD: nexusai_secret
+      POSTGRES_DB: nexusai
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nexusai']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nexusai_redis
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexusai_backend
+    ports:
+      - '5000:5000'
+    environment:
+      NODE_ENV: production
+      # Inside Docker the file-processor is reachable by service name
+      # (overrides FILE_PROCESSOR_URL in backend/.env, which is set to
+      # localhost for native dev).
+      FILE_PROCESSOR_URL: http://file-processor:8000
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nexusai_frontend
+    ports:
+      - '3000:80'
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  file-processor:
+    build:
+      context: ./backend/file-processor
+      dockerfile: Dockerfile
+    container_name: nexusai_file_processor
+    ports:
+      - '8000:8000'
+    environment:
+      - TRANSFORMERS_CACHE=/tmp/transformers_cache
+      - TORCH_HOME=/tmp/torch_home
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/file-processor/temp:/app/temp
+      - file_processor_cache:/tmp/transformers_cache
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+  redis_data:
+  file_processor_cache:

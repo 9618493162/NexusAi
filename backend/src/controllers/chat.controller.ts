@@ -1,0 +1,137 @@
+import { Request, Response } from "express";
+import { body, validationResult } from "express-validator";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import * as chatService from "../services/chat.service";
+import { logger } from "../config/logger";
+
+export const chatValidators = [
+  body("message").trim().isLength({ min: 1 }).withMessage("Message is required"),
+  body("conversationId").optional().isUUID(),
+  body("model").optional().isString(),
+  body("language").optional().isString().isLength({ min: 2, max: 20 }),
+  body("languageCode").optional().isString().isLength({ min: 2, max: 10 }),
+];
+
+export async function streamChat(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: "Validation failed", details: errors.array() });
+    return;
+  }
+
+  try {
+    const { message, conversationId, model, language, languageCode } = req.body;
+    const userId = req.user?.userId;
+
+    let convId = conversationId;
+    if (!convId) {
+      const conv = await chatService.createConversation(userId!, message.slice(0, 50));
+      convId = conv.id;
+    }
+
+    await chatService.saveMessage(convId, message, "user", model, userId, languageCode);
+
+    const history = await chatService.getConversationMessages(convId);
+    const messages = history.map((m) => ({
+      role: m.role as "user" | "assistant" | "system",
+      content: m.content,
+    }));
+
+    const languageDirective = language
+      ? ` Reply in ${language} — translate your answer into ${language} unless the user writes in another language and asks you not to.`
+      : "";
+    const systemMessage = {
+      role: "system" as const,
+      content: `You are NexusAI, a helpful AI assistant. Be concise and accurate.${languageDirective}`,
+    };
+
+    const allMessages = [systemMessage, ...messages];
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    let fullResponse = "";
+
+    for await (const chunk of chatService.streamChat(allMessages, model, userId)) {
+      fullResponse += chunk;
+      res.write(`data: ${JSON.stringify({ content: chunk, conversationId: convId })}\n\n`);
+    }
+
+    // Never persist an empty assistant reply — a blank message in history can
+    // make some providers (e.g. Mistral) return empty streams afterwards.
+    if (fullResponse.trim()) {
+      await chatService.saveMessage(convId, fullResponse, "assistant", model, userId, languageCode);
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    logger.error("Chat stream error:", error);
+    res.write(`data: ${JSON.stringify({ error: error.message || "Chat failed" })}\n\n`);
+    res.end();
+  }
+}
+
+export async function getModels(req: Request, res: Response): Promise<void> {
+  try {
+    const models = await chatService.getAvailableModels();
+    res.json(models);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function getConversations(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { pinned, archived, search } = req.query;
+
+    const conversations = await chatService.getUserConversations(userId, {
+      pinned: pinned === "true" ? true : pinned === "false" ? false : undefined,
+      archived: archived === "true" ? true : archived === "false" ? false : undefined,
+      search: search as string | undefined,
+    });
+
+    res.json(conversations);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function getMessages(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const messages = await chatService.getConversationMessages(id);
+    res.json(messages);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function updateConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const { title, isPinned, isArchived } = req.body;
+
+    const conversation = await chatService.updateConversation(id, {
+      title,
+      isPinned,
+      isArchived,
+    });
+
+    res.json(conversation);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export async function deleteConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    await chatService.deleteConversation(id);
+    res.json({ message: "Conversation deleted" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
