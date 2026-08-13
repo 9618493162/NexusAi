@@ -4,6 +4,7 @@ import { logger } from "../config/logger";
 import { streamGeminiChat } from "./gemini.service";
 import { streamOpenRouterChat } from "./openrouter.service";
 import { streamMistralChat } from "./mistral.service";
+import { streamKimiChat } from "./kimi.service";
 import { streamNvidiaChat, NVIDIA_MODELS, NVIDIA_MODEL_NAMES } from "./nvidia.service";
 
 export interface ChatMessage {
@@ -13,9 +14,10 @@ export interface ChatMessage {
 
 const GROQ_MODEL_IDS: Set<string> = new Set(Object.values(GROQ_MODELS));
 
-export function detectProvider(model: string): "groq" | "gemini" | "openrouter" | "mistral" | "nvidia" {
+export function detectProvider(model: string): "groq" | "gemini" | "openrouter" | "mistral" | "nvidia" | "kimi" {
   if (model.startsWith("gemini")) return "gemini";
   if (NVIDIA_MODEL_NAMES[model]) return "nvidia";
+  if (model.startsWith("kimi")) return "kimi";
   // Groq ids can contain "/" (e.g. qwen/qwen3.6-27b) — match them before the
   // generic OpenRouter rule so they don't get misrouted.
   if (GROQ_MODEL_IDS.has(model)) return "groq";
@@ -46,6 +48,11 @@ export async function* streamChat(
       }
     } else if (provider === "mistral") {
       for await (const chunk of streamMistralChat(messages, model)) {
+        fullContent += chunk;
+        yield chunk;
+      }
+    } else if (provider === "kimi") {
+      for await (const chunk of streamKimiChat(messages, model)) {
         fullContent += chunk;
         yield chunk;
       }
@@ -111,6 +118,9 @@ export async function getAvailableModels() {
     { id: "mistral-medium-latest", name: "Mistral Medium", provider: "mistral", context: "32k" },
     { id: "mistral-small-latest", name: "Mistral Small", provider: "mistral", context: "32k" },
     { id: "codestral-latest", name: "Codestral (code)", provider: "mistral", context: "256k" },
+    // Kimi (Moonshot AI) — OpenAI-compatible; account currently has no balance.
+    { id: "kimi-k2.6", name: "Kimi K2.6 (Moonshot)", provider: "kimi", context: "256k" },
+    { id: "kimi-k2.7-code", name: "Kimi K2.7 Code (Moonshot)", provider: "kimi", context: "256k" },
     // NVIDIA NIM — serverless models, OpenAI-compatible.
     ...Object.values(NVIDIA_MODELS).map((id) => ({
       id,
@@ -127,10 +137,11 @@ export async function saveMessage(
   role: "user" | "assistant",
   model?: string,
   userId?: string,
-  language?: string
+  language?: string,
+  fileId?: string
 ) {
   return prisma.message.create({
-    data: { content, role, model, language, conversationId, userId },
+    data: { content, role, model, language, conversationId, userId, ...(fileId ? { fileId } : {}) },
   });
 }
 
@@ -145,6 +156,41 @@ export async function getConversationMessages(conversationId: string) {
     where: { conversationId },
     orderBy: { createdAt: "asc" },
   });
+}
+
+/**
+ * How much extracted text is injected as file context per attached file.
+ * Mirrors the upload response's 20k slice so the model never sees more than
+ * the frontend would have inlined before.
+ */
+const FILE_CONTEXT_LIMIT = 20000;
+
+/**
+ * RAG-lite retrieval: for the given user's messages, look up every attached
+ * file by id (ownership-scoped — a user can never pull another user's file)
+ * and build the exact `[File: name]` context blocks. Files without real
+ * extracted text are skipped, and a deleted/missing file simply yields no
+ * context. No vector store: the file's extracted text IS the retrieval unit.
+ */
+export async function getFileContexts(
+  userId: string,
+  messages: Array<{ fileId?: string | null }>
+): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(messages.map((m) => m.fileId).filter((id): id is string => !!id)));
+  if (ids.length === 0) return {};
+
+  const files = await prisma.file.findMany({
+    where: { id: { in: ids }, userId }, // ownership enforced server-side
+    select: { id: true, originalName: true, extractedText: true },
+  });
+
+  const contexts: Record<string, string> = {};
+  for (const file of files) {
+    const text = (file.extractedText || "").trim();
+    if (!text || text === "File processing disabled") continue;
+    contexts[file.id] = `\n\n[File: ${file.originalName}]\n${text.slice(0, FILE_CONTEXT_LIMIT)}`;
+  }
+  return contexts;
 }
 
 export async function getUserConversations(

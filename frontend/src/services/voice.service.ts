@@ -36,6 +36,20 @@ export const voiceService = {
     return (res.data?.transcript as string) || "";
   },
 
+  // Same call, but also returns the per-word timestamps so the studio can
+  // render a seekable, highlighted transcript (word, start, end in seconds).
+  async transcribeWithWords(blob: Blob, language?: string): Promise<{ transcript: string; words: VoiceWord[] }> {
+    const type = (blob.type || "audio/webm").split(";")[0];
+    const res = await api.post("/voice/transcribe", blob, {
+      headers: { "Content-Type": type },
+      params: language ? { language } : undefined,
+    });
+    return {
+      transcript: (res.data?.transcript as string) || "",
+      words: Array.isArray(res.data?.words) ? (res.data.words as VoiceWord[]) : [],
+    };
+  },
+
   // Synthesize speech via the backend (mp3 bytes). English uses the Deepgram
   // aura voice picker; non-English uses free Edge neural voices for the
   // language.
@@ -61,4 +75,37 @@ export const voiceService = {
     const res = await api.get("/voice/languages");
     return (res.data as Array<{ code: string; name: string; bcp47: string }>) || [];
   },
+
+  // Persisted voice-studio sessions (real history across devices).
+  async createSession(data: { transcript: string; translation?: string; analysis?: string; sourceLang?: string; targetLang?: string }): Promise<VoiceSession> {
+    const res = await api.post("/voice/sessions", data);
+    return res.data as VoiceSession;
+  },
+  async getSessions(): Promise<VoiceSession[]> {
+    const res = await api.get<{ sessions: VoiceSession[] }>("/voice/sessions");
+    return res.data?.sessions || [];
+  },
+  async updateSession(id: string, data: { translation?: string; analysis?: string }): Promise<void> {
+    await api.patch(`/voice/sessions/${id}`, data);
+  },
+  async deleteSession(id: string): Promise<void> {
+    await api.delete(`/voice/sessions/${id}`);
+  },
 };
+
+export interface VoiceSession {
+  id: string;
+  transcript: string;
+  translation: string | null;
+  analysis: string | null;
+  sourceLang: string;
+  targetLang: string;
+  createdAt: string;
+}
+
+export interface VoiceWord {
+  word: string;
+  start: number;
+  end: number;
+  confidence?: number;
+}

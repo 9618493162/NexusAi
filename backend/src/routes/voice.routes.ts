@@ -17,4 +17,10 @@ router.get("/voices", authMiddleware, voiceController.getVoices);
 router.get("/edge-voices", authMiddleware, voiceController.getEdgeVoices);
 router.get("/languages", authMiddleware, voiceController.getLanguages);
 
+// Persisted voice-studio sessions (real history across devices).
+router.post("/sessions", authMiddleware, voiceController.createSession);
+router.get("/sessions", authMiddleware, voiceController.getSessions);
+router.patch("/sessions/:id", authMiddleware, voiceController.updateSession);
+router.delete("/sessions/:id", authMiddleware, voiceController.deleteSession);
+
 export default router;

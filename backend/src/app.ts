@@ -19,6 +19,15 @@ import usageRoutes from "./routes/usage.routes";
 import providersRoutes from "./routes/providers.routes";
 import voiceRoutes from "./routes/voice.routes";
 import settingsRoutes from "./routes/settings.routes";
+import searchRoutes from "./routes/search.routes";
+import projectRoutes from "./routes/project.routes";
+import meetingRoutes from "./routes/meeting.routes";
+import workflowRoutes from "./routes/workflow.routes";
+import dataRoutes from "./routes/data.routes";
+import researchRoutes from "./routes/research.routes";
+import documentRoutes from "./routes/document.routes";
+import marketRoutes from "./routes/market.routes";
+import agentRoutes from "./routes/agent.routes";
 import { attachVoiceLiveProxy } from "./services/voice.live";
 
 const app = express();
@@ -58,6 +67,15 @@ app.use("/api/usage", usageRoutes);
 app.use("/api/providers", providersRoutes);
 app.use("/api/voice", voiceRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/meetings", meetingRoutes);
+app.use("/api/workflows", workflowRoutes);
+app.use("/api/data", dataRoutes);
+app.use("/api/research", researchRoutes);
+app.use("/api/market", marketRoutes);
+app.use("/api/documents", documentRoutes);
+app.use("/api/agents", agentRoutes);
 
 // 404 handler
 app.use((req, res) => {

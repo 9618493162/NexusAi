@@ -1,7 +1,7 @@
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 
-const NVCF_BASE_URL = "https://api.nvcf.nvidia.com/v2/nvcf";
+export const NVCF_BASE_URL = "https://api.nvcf.nvidia.com/v2/nvcf";
 
 // Verified ACTIVE function IDs on this account (from /v2/nvcf/functions).
 export const NVIDIA_IMAGE_FUNCTIONS: Record<string, { id: string; name: string }> = {

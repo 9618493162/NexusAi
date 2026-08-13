@@ -3,6 +3,12 @@ export interface User {
   email: string | null;
   name: string | null;
   avatar: string | null;
+  /** light | dark | system — saved to the account, follows across devices. */
+  theme?: string;
+  /** Speech-recognition language for live dictation — saved to the account, follows across devices. */
+  dictateLang?: string | null;
+  /** Translation target for dictated speech — saved to the account, follows across devices. */
+  dictateTo?: string | null;
 }
 
 export interface Conversation {

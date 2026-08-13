@@ -22,6 +22,8 @@ export async function* streamMistralChat(
         temperature: 0.7,
         max_tokens: 2048,
       }),
+      // Never wedge the provider pool on a stuck upstream.
+      signal: AbortSignal.timeout(90_000),
     });
 
     if (!response.ok) {

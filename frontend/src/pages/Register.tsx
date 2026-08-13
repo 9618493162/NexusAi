@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AuthShell } from "@/components/AuthShell";
 import { authService } from "@/services/auth.service";
 import { supabase, supabaseConfigured, SUPABASE_REDIRECT_URL } from "@/services/supabase.client";
 import { useAuthStore } from "@/store/auth.store";
 import { cn } from "@/utils/cn";
+
+const STRENGTH_REQS = [
+  { label: "8+ characters", test: (p: string) => p.length >= 8 },
+  { label: "Uppercase (A-Z)", test: (p: string) => /[A-Z]/.test(p) },
+  { label: "Lowercase (a-z)", test: (p: string) => /[a-z]/.test(p) },
+  { label: "Number (0-9)", test: (p: string) => /[0-9]/.test(p) },
+  { label: "Special character", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
 
 export function Register() {
   const navigate = useNavigate();
@@ -20,20 +29,11 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
-  const getPasswordStrength = (pass: string) => {
-    let score = 0;
-    if (pass.length >= 8) score++;
-    if (/[A-Z]/.test(pass)) score++;
-    if (/[a-z]/.test(pass)) score++;
-    if (/[0-9]/.test(pass)) score++;
-    if (/[A-Za-z0-9]/.test(pass)) score++;
-    return score;
-  };
-
-  const strength = getPasswordStrength(password);
-  const strengthLabels = ["Very Weak", "Weak", "Fair", "Good", "Strong"];
-  const strengthColor = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-blue-500", "bg-green-500"][strength - 1] || "bg-gray-600";
-  const strengthTextColor = ["text-red-400", "text-orange-400", "text-yellow-400", "text-blue-400", "text-green-400"][strength - 1] || "text-gray-500";
+  const metCount = STRENGTH_REQS.filter((r) => r.test(password)).length;
+  const strength = Math.min(metCount, 4);
+  const strengthLabels = ["Weak", "Fair", "Good", "Strong"];
+  const strengthColors = ["bg-destructive", "bg-warning", "bg-info", "bg-success"];
+  const strengthText = ["text-destructive", "text-warning", "text-info", "text-success"];
 
   const handleResend = async () => {
     if (!supabase || !email) return;
@@ -96,92 +96,95 @@ export function Register() {
     }
   };
 
+  const inputCls = "pl-10";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Create account</h1>
-          <p className="text-muted-foreground mt-2">Get started with NexusAI</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">{error}</div>}
-          {success && (
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/50 text-green-500 text-sm space-y-2">
-              <div>{success}</div>
-              {supabaseConfigured && supabase && (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={resending}
-                  className="text-xs underline underline-offset-2 hover:text-green-400 disabled:opacity-60 transition-colors"
-                >
-                  {resending ? "Resending…" : "Resend confirmation email"}
-                </button>
-              )}
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Name</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-muted text-foreground caret-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="John Doe" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-muted text-foreground caret-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="you@example.com" required />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-10 pr-10 py-2 rounded-lg border border-input bg-muted text-foreground caret-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="••••••••" required />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+    <AuthShell
+      title="Create account"
+      subtitle="Get started with NexusAI — free"
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link to="/login" className="font-medium text-primary hover:underline">Sign in</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">{error}</div>
+        )}
+        {success && (
+          <div className="space-y-2 rounded-lg border border-success/30 bg-success/8 px-4 py-3 text-sm text-success">
+            <div>{success}</div>
+            {supabaseConfigured && supabase && (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending}
+                className="text-xs font-medium underline underline-offset-2 transition-colors hover:text-success disabled:opacity-60"
+              >
+                {resending ? "Resending…" : "Resend confirmation email"}
               </button>
-            </div>
-            {password && (
-              <div className="space-y-2 mt-2 p-3 rounded-lg bg-muted/50 border border-border">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 flex gap-1 h-2">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className={cn("flex-1 rounded-full transition-all duration-300", i <= strength ? strengthColor : "bg-gray-700")} />
-                    ))}
-                  </div>
-                  <span className={cn("text-xs font-medium min-w-[60px] text-right", strengthTextColor)}>
-                    {strength > 0 ? strengthLabels[strength - 1] : "Too short"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  {[
-                    { label: "8+ characters", met: password.length >= 8 },
-                    { label: "Uppercase (A-Z)", met: /[A-Z]/.test(password) },
-                    { label: "Lowercase (a-z)", met: /[a-z]/.test(password) },
-                    { label: "Number (0-9)", met: /[0-9]/.test(password) },
-                    { label: "Special character", met: /[A-Za-z0-9]/.test(password) },
-                  ].map((req) => (
-                    <div key={req.label} className={cn("flex items-center gap-1.5 text-xs transition-colors", req.met ? "text-green-400" : "text-muted-foreground")}>
-                      <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center text-[10px] font-bold", req.met ? "bg-green-500 text-white" : "bg-gray-700 text-gray-500")}>
-                        {req.met ? "✓" : ""}
-                      </div>
-                      {req.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={loading || strength < 3}>
-            {loading ? "Creating account..." : "Create Account"}
-          </Button>
-        </form>
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
-        </p>
-      </motion.div>
-    </div>
+        )}
+
+        <div className="space-y-2">
+          <label htmlFor="reg-name" className="text-sm font-medium">Name</label>
+          <div className="relative">
+            <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="reg-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="John Doe" autoComplete="name" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="reg-email" className="text-sm font-medium">Email</label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="reg-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="you@example.com" required autoComplete="email" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="reg-password" className="text-sm font-medium">Password</label>
+          <div className="relative">
+            <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="reg-password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} placeholder="••••••••" required autoComplete="new-password" />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground">
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {password && (
+            <div className="space-y-2.5 rounded-xl border border-border bg-muted/40 p-3.5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-1.5 flex-1 gap-1">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className={cn("flex-1 rounded-full transition-all duration-300", i < strength ? strengthColors[strength - 1] : "bg-border")} />
+                  ))}
+                </div>
+                <span className={cn("min-w-[52px] text-right text-xs font-medium", strength > 0 ? strengthText[strength - 1] : "text-muted-foreground")}>
+                  {strength > 0 ? strengthLabels[strength - 1] : "Too short"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                {STRENGTH_REQS.map((req) => {
+                  const met = req.test(password);
+                  return (
+                    <div key={req.label} className={cn("flex items-center gap-1.5 text-xs transition-colors", met ? "text-success" : "text-muted-foreground")}>
+                      {met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3 opacity-50" />}
+                      {req.label}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <Button type="submit" className="w-full" size="lg" disabled={loading || strength < 3}>
+          {loading ? "Creating account…" : "Create Account"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

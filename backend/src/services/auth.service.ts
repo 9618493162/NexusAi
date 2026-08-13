@@ -6,6 +6,7 @@ import { generateAccessToken, generateRefreshToken } from "../utils/jwt";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/email";
 import { sendRecoveryEmail, registerWithSupabase, deleteSupabaseUser } from "./supabase-auth.service";
 import { logger } from "../config/logger";
+import { parseUserAgent } from "../utils/device";
 
 export interface AuthResult {
   accessToken: string;
@@ -21,7 +22,8 @@ export interface AuthResult {
 export async function register(
   email: string,
   password: string,
-  name?: string
+  name?: string,
+  userAgent?: string
 ): Promise<AuthResult | { user: AuthResult["user"]; requiresEmailConfirmation: true }> {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -93,6 +95,7 @@ export async function register(
     data: {
       token: refreshToken,
       userId: user.id,
+      userAgent,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
@@ -100,7 +103,7 @@ export async function register(
   return { accessToken, refreshToken, user };
 }
 
-export async function login(email: string, password: string): Promise<AuthResult> {
+export async function login(email: string, password: string, userAgent?: string): Promise<AuthResult> {
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, email: true, name: true, avatar: true, password: true },
@@ -135,6 +138,7 @@ export async function login(email: string, password: string): Promise<AuthResult
     data: {
       token: refreshToken,
       userId: user.id,
+      userAgent,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });
@@ -142,7 +146,10 @@ export async function login(email: string, password: string): Promise<AuthResult
   return { accessToken, refreshToken, user: userWithoutPassword };
 }
 
-export async function refreshToken(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function refreshToken(
+  token: string,
+  userAgent?: string
+): Promise<{ accessToken: string; refreshToken: string }> {
   const { verifyRefreshToken } = await import("../utils/jwt");
   const decoded = verifyRefreshToken(token);
 
@@ -155,8 +162,9 @@ export async function refreshToken(token: string): Promise<{ accessToken: string
     throw new Error("Invalid or expired refresh token");
   }
 
-  await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-
+  // Rotate in place (rather than delete+create) so the session keeps a stable
+  // id across refreshes — the sessions list can show one entry with a real
+  // "last active" time instead of a new row every 15 minutes.
   const accessToken = generateAccessToken({
     userId: storedToken.user.id,
     email: storedToken.user.email,
@@ -171,23 +179,196 @@ export async function refreshToken(token: string): Promise<{ accessToken: string
     avatar: storedToken.user.avatar,
   });
 
-  await prisma.refreshToken.create({
+  await prisma.refreshToken.update({
+    where: { id: storedToken.id },
     data: {
       token: newRefreshToken,
-      userId: storedToken.user.id,
+      userAgent: userAgent ?? storedToken.userAgent,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      lastUsedAt: new Date(),
     },
   });
 
   return { accessToken, refreshToken: newRefreshToken };
 }
 
+// ---------------------------------------------------------------------------
+// Session management (the Security → Active sessions list)
+// ---------------------------------------------------------------------------
+
+export interface SessionInfo {
+  id: string;
+  createdAt: Date;
+  lastUsedAt: Date;
+  expiresAt: Date;
+  userAgent: string | null;
+  browser: string;
+  os: string;
+  device: string;
+  isCurrent: boolean;
+}
+
+/**
+ * List the user's active (non-expired) sessions, newest activity first.
+ * `currentToken` (the client's refresh token) marks the row that belongs to
+ * the device making the request.
+ */
+export async function listSessions(userId: string, currentToken?: string): Promise<SessionInfo[]> {
+  const sessions = await prisma.refreshToken.findMany({
+    where: { userId, expiresAt: { gt: new Date() } },
+    orderBy: { lastUsedAt: "desc" },
+    take: 50,
+    select: { id: true, createdAt: true, lastUsedAt: true, expiresAt: true, userAgent: true, token: true },
+  });
+  return sessions.map(({ token, userAgent, ...session }) => {
+    const device = parseUserAgent(userAgent);
+    return {
+      ...session,
+      userAgent,
+      browser: device.browser,
+      os: device.os,
+      device: device.device,
+      isCurrent: !!currentToken && token === currentToken,
+    };
+  });
+}
+
+/**
+ * Revoke one session. The session currently in use cannot be revoked here —
+ * the client signs out instead.
+ */
+export async function revokeSession(
+  userId: string,
+  sessionId: string,
+  currentToken?: string
+): Promise<void> {
+  const session = await prisma.refreshToken.findFirst({
+    where: { id: sessionId, userId },
+    select: { id: true, token: true },
+  });
+  if (!session) throw new Error("Session not found");
+  if (currentToken && session.token === currentToken) {
+    throw new Error("You can't revoke the session you're currently using — sign out instead");
+  }
+  await prisma.refreshToken.delete({ where: { id: session.id } });
+}
+
 export async function logout(token: string): Promise<void> {
   await prisma.refreshToken.deleteMany({ where: { token } });
 }
 
+// Profile reading/editing for the Account & Settings Center. The users table is
+// the source of truth for name/avatar; every client already receives the same
+// { id, email, name, avatar } shape plus account metadata (additive).
+export interface ProfileInfo {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+  provider: string | null;
+  isVerified: boolean;
+  /** light | dark | system — synced across devices via the profile API. */
+  theme: string;
+  /** Speech-recognition language for live dictation — synced across devices. */
+  dictateLang: string | null;
+  /** Translation target for dictated speech — synced across devices. */
+  dictateTo: string | null;
+  /** Whether the account has a local password hash (can change it in-app). */
+  hasPassword: boolean;
+  createdAt: Date;
+}
+
+// password is selected only to compute hasPassword — the hash itself is never
+// exposed to clients.
+const PROFILE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  avatar: true,
+  provider: true,
+  isVerified: true,
+  theme: true,
+  dictateLang: true,
+  dictateTo: true,
+  password: true,
+  createdAt: true,
+} as const;
+
+type ProfileRow = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+  provider: string | null;
+  isVerified: boolean;
+  theme: string;
+  dictateLang: string | null;
+  dictateTo: string | null;
+  password: string | null;
+  createdAt: Date;
+};
+
+function toProfileInfo(user: ProfileRow): ProfileInfo {
+  const { password, ...rest } = user;
+  return { ...rest, hasPassword: !!password };
+}
+
+export async function getUserById(userId: string): Promise<ProfileInfo | null> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: PROFILE_SELECT });
+  return user ? toProfileInfo(user) : null;
+}
+
+export async function updateProfile(
+  userId: string,
+  data: { name?: string; avatar?: string | null; theme?: string; dictateLang?: string | null; dictateTo?: string | null }
+): Promise<ProfileInfo> {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.avatar !== undefined ? { avatar: data.avatar } : {}),
+      ...(data.theme !== undefined ? { theme: data.theme } : {}),
+      ...(data.dictateLang !== undefined ? { dictateLang: data.dictateLang } : {}),
+      ...(data.dictateTo !== undefined ? { dictateTo: data.dictateTo } : {}),
+    },
+    select: PROFILE_SELECT,
+  });
+  return toProfileInfo(user);
+}
+
 export async function logoutAll(userId: string): Promise<void> {
   await prisma.refreshToken.deleteMany({ where: { userId } });
+}
+
+/**
+ * Change the password for a LOCAL account (one with a stored bcrypt hash).
+ * Accounts that sign in through Supabase/OAuth have no local password, so
+ * they must use the reset-link flow instead.
+ */
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, password: true, provider: true },
+  });
+  if (!user) throw new Error("Account not found");
+  if (!user.password) {
+    const provider = user.provider || "external";
+    throw new Error(
+      `This account signs in through ${provider} and has no local password. Use the reset link instead.`
+    );
+  }
+  const isValid = await bcrypt.compare(currentPassword, user.password);
+  if (!isValid) throw new Error("Current password is incorrect");
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword },
+  });
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

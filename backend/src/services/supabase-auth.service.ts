@@ -111,7 +111,7 @@ export async function sendRecoveryEmail(email: string, redirectTo: string): Prom
   return true;
 }
 
-export async function exchangeSupabaseSession(accessToken: string): Promise<SupabaseAuthResult> {
+export async function exchangeSupabaseSession(accessToken: string, userAgent?: string): Promise<SupabaseAuthResult> {
   const client = getAdminClient();
   if (!client) {
     throw new Error("Supabase Auth is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing)");
@@ -178,6 +178,7 @@ export async function exchangeSupabaseSession(accessToken: string): Promise<Supa
     data: {
       token: refreshToken,
       userId: user.id,
+      userAgent,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
   });

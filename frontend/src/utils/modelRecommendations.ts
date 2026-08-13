@@ -56,7 +56,7 @@ export const TASK_MODELS: Record<
     prompt: "Help me research this topic:",
   },
   "quick-tasks": {
-    model: "gemini-flash-latest",
+    model: "gemini-3.5-flash",
     prompt: "Let's knock out a quick task — emails, lists, or anything small:",
   },
   analytics: {
@@ -66,8 +66,10 @@ export const TASK_MODELS: Record<
 };
 
 // The reliable free default when nothing points elsewhere (Groq's default key
-// is dead, so "Auto" never falls back to it).
-export const AUTO_DEFAULT_MODEL = "gemini-flash-latest";
+// is dead, so "Auto" never falls back to it). Note: use the concrete
+// gemini-3.5-flash, NOT the "-latest" alias — the alias endpoint stalls the
+// SSE stream on some Node runtimes (undici), which hangs the whole reply.
+export const AUTO_DEFAULT_MODEL = "gemini-3.5-flash";
 
 // Pick the best model for a message, given an optional task context from a
 // Quick Action card. A model the user previously chose for that task wins;

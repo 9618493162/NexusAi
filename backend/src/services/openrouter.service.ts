@@ -23,6 +23,8 @@ export async function* streamOpenRouterChat(
         // account's remaining credit (402) otherwise.
         max_tokens: 1024,
       }),
+      // Never wedge the provider pool on a stuck upstream.
+      signal: AbortSignal.timeout(90_000),
     });
 
     if (!response.ok) {

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Mail, ArrowLeft } from "lucide-react";
+import { Mail, ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AuthShell } from "@/components/AuthShell";
 import { authService } from "@/services/auth.service";
 import { supabase, supabaseConfigured } from "@/services/supabase.client";
 
@@ -40,47 +41,42 @@ export function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Reset password</h1>
-          <p className="text-muted-foreground mt-2">Enter your email and we'll send you a reset link</p>
-        </div>
-        {sent ? (
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/50 text-green-500 text-sm">
-              If an account exists for <strong>{email}</strong>, a password reset link is on its way. Check your inbox (and spam folder).
-            </div>
-            <Link to="/login" className="flex items-center justify-center gap-2 text-sm text-primary hover:underline">
-              <ArrowLeft className="w-4 h-4" /> Back to sign in
-            </Link>
+    <AuthShell
+      title={sent ? "Check your inbox" : "Reset password"}
+      subtitle={sent ? undefined : "Enter your email and we'll send you a reset link"}
+      footer={
+        <Link to="/login" className="inline-flex items-center gap-1.5 font-medium text-primary transition-colors hover:underline">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+        </Link>
+      }
+    >
+      {sent ? (
+        <div className="flex flex-col items-center py-4 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-success/10 text-success ring-1 ring-success/25">
+            <CheckCircle2 className="h-7 w-7" strokeWidth={1.7} />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">{error}</div>}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-muted text-foreground caret-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="you@example.com"
-                  required
-                />
-              </div>
+          <p className="text-sm text-muted-foreground text-balance">
+            If an account exists for <strong className="text-foreground">{email}</strong>, a password reset link is on its way.
+            Check your inbox (and spam folder).
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">{error}</div>
+          )}
+          <div className="space-y-2">
+            <label htmlFor="fp-email" className="text-sm font-medium">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input id="fp-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" placeholder="you@example.com" required autoComplete="email" />
             </div>
-            <Button type="submit" className="w-full" disabled={loading || !email}>
-              {loading ? "Sending..." : "Send reset link"}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              <Link to="/login" className="text-primary hover:underline">Back to sign in</Link>
-            </p>
-          </form>
-        )}
-      </motion.div>
-    </div>
+          </div>
+          <Button type="submit" className="w-full" size="lg" disabled={loading || !email}>
+            {loading ? "Sending…" : <><KeyRound className="h-4 w-4 mr-2" /> Send reset link</>}
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 }

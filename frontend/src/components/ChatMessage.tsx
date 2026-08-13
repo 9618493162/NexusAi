@@ -1,8 +1,67 @@
 import { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Volume2, Loader2, Square, ChevronUp } from "lucide-react";
+// PrismLight registers only the languages below (instead of the full prism
+// bundle, ~700 kB of language grammars). Unknown fenced languages fall back
+// to plain text via react-syntax-highlighter's built-in try/catch.
+import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx";
+import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
+import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
+import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
+import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
+import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
+import sql from "react-syntax-highlighter/dist/esm/languages/prism/sql";
+import markdown from "react-syntax-highlighter/dist/esm/languages/prism/markdown";
+import java from "react-syntax-highlighter/dist/esm/languages/prism/java";
+import c from "react-syntax-highlighter/dist/esm/languages/prism/c";
+import cpp from "react-syntax-highlighter/dist/esm/languages/prism/cpp";
+import csharp from "react-syntax-highlighter/dist/esm/languages/prism/csharp";
+import go from "react-syntax-highlighter/dist/esm/languages/prism/go";
+import rust from "react-syntax-highlighter/dist/esm/languages/prism/rust";
+import php from "react-syntax-highlighter/dist/esm/languages/prism/php";
+import ruby from "react-syntax-highlighter/dist/esm/languages/prism/ruby";
+import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml";
+import docker from "react-syntax-highlighter/dist/esm/languages/prism/docker";
+import graphql from "react-syntax-highlighter/dist/esm/languages/prism/graphql";
+import kotlin from "react-syntax-highlighter/dist/esm/languages/prism/kotlin";
+import swift from "react-syntax-highlighter/dist/esm/languages/prism/swift";
+
+// markup, css, clike, javascript come pre-registered in refractor/core.
+SyntaxHighlighter.registerLanguage("jsx", jsx);
+SyntaxHighlighter.registerLanguage("tsx", tsx);
+SyntaxHighlighter.registerLanguage("typescript", typescript);
+SyntaxHighlighter.registerLanguage("python", python);
+SyntaxHighlighter.registerLanguage("bash", bash);
+SyntaxHighlighter.registerLanguage("json", json);
+SyntaxHighlighter.registerLanguage("sql", sql);
+SyntaxHighlighter.registerLanguage("markdown", markdown);
+SyntaxHighlighter.registerLanguage("java", java);
+SyntaxHighlighter.registerLanguage("c", c);
+SyntaxHighlighter.registerLanguage("cpp", cpp);
+SyntaxHighlighter.registerLanguage("csharp", csharp);
+SyntaxHighlighter.registerLanguage("go", go);
+SyntaxHighlighter.registerLanguage("rust", rust);
+SyntaxHighlighter.registerLanguage("php", php);
+SyntaxHighlighter.registerLanguage("ruby", ruby);
+SyntaxHighlighter.registerLanguage("yaml", yaml);
+SyntaxHighlighter.registerLanguage("docker", docker);
+SyntaxHighlighter.registerLanguage("graphql", graphql);
+SyntaxHighlighter.registerLanguage("kotlin", kotlin);
+SyntaxHighlighter.registerLanguage("swift", swift);
+
+// Common aliases used in fenced-code blocks.
+SyntaxHighlighter.alias("javascript", ["js"]);
+SyntaxHighlighter.alias("typescript", ["ts"]);
+SyntaxHighlighter.alias("python", ["py"]);
+SyntaxHighlighter.alias("bash", ["sh", "shell"]);
+SyntaxHighlighter.alias("yaml", ["yml"]);
+SyntaxHighlighter.alias("markup", ["html", "xml"]);
+SyntaxHighlighter.alias("cpp", ["c++"]);
+SyntaxHighlighter.alias("csharp", ["cs"]);
+SyntaxHighlighter.alias("markdown", ["md"]);
+import { Volume2, Loader2, Square, ChevronUp, Copy, Check, User } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { getLangColor } from "@/utils/languageColors";
 import { playSpeech, stopCurrentSpeech } from "@/utils/speech";
@@ -13,6 +72,8 @@ interface ChatMessageProps {
   message: Message;
   /** Language to speak the reply in when the replay button is pressed. */
   replayLang?: string;
+  /** Optional element rendered under the bubble (e.g. an attachment chip). */
+  meta?: React.ReactNode;
 }
 
 interface VoiceOption {
@@ -20,15 +81,14 @@ interface VoiceOption {
   label: string;
 }
 
-
-
-export function ChatMessage({ message, replayLang }: ChatMessageProps) {
+export function ChatMessage({ message, replayLang, meta }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [fetching, setFetching] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0..1 while playing
   const [voice, setVoice] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [dgVoices, setDgVoices] = useState<Array<{ id: string; name: string }>>([]);
   const [edgeVoices, setEdgeVoices] = useState<Array<{ id: string; language: string; name: string; gender: "Female" | "Male" }>>([]);
   const [langNames, setLangNames] = useState<Record<string, string>>({});
@@ -87,7 +147,7 @@ export function ChatMessage({ message, replayLang }: ChatMessageProps) {
     const saved = localStorage.getItem(replayLang === "en" ? "nexusai-voice" : `nexusai-edge-voice-${replayLang}`);
     const match = voiceOptions.find((v) => v.id === saved);
     setVoice(match ? match.id : voiceOptions[0].id);
-  }, [replayLang, voiceOptions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [replayLang, voiceOptions.length]);
 
   // Long-press (450ms) opens the voice picker; a short press replays.
   const startPress = () => {
@@ -177,104 +237,161 @@ export function ChatMessage({ message, replayLang }: ChatMessageProps) {
     playAudio(id);
   };
 
+  const copyContent = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* clipboard unavailable */ }
+  };
+
+  const streaming = !isUser && !message.content;
+
   return (
-    <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
-      <div className={cn("flex items-end gap-1.5", isUser ? "flex-row-reverse" : "flex-row")}>
-        <div className={cn("max-w-[80%] rounded-2xl px-4 py-3", isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
-          {isUser ? (
-            <p className="text-sm">{message.content}</p>
-          ) : (
-            <ReactMarkdown
-              className="prose prose-sm dark:prose-invert max-w-none"
-              components={{
-                code({ inline, className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  return !inline && match ? (
-                    <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" {...props}>
-                      {String(children).replace(/\n$/, "")}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code className={className} {...props}>{children}</code>
-                  );
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
+    >
+      <div className={cn("flex w-full items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
+        {/* Avatar */}
+        <div
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ring-1",
+            isUser
+              ? "bg-gradient-to-br from-primary to-indigo-500 text-primary-foreground ring-primary/30"
+              : "bg-gradient-to-br from-violet-500/20 to-indigo-500/10 text-primary ring-primary/20"
           )}
-          {!isUser && playing && (
-            <div className="mt-2 h-1 w-full rounded-full bg-muted-foreground/20 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-300 ease-linear"
-                style={{ width: `${Math.round(progress * 100)}%` }}
-              />
-            </div>
-          )}
+          aria-hidden="true"
+        >
+          {isUser ? <User className="h-3.5 w-3.5" /> : "N"}
         </div>
-        {!isUser && replayLang && message.content && (
-          <div className="relative flex flex-col items-center gap-1">
-            {replayLang !== "en" && (
-              <span
-                title={`This reply is in ${langNames[replayLang] || replayLang}`}
-                className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full whitespace-nowrap font-medium"
-                style={{
-                  color: getLangColor(replayLang),
-                  backgroundColor: `${getLangColor(replayLang)}1a`,
-                  border: `1px solid ${getLangColor(replayLang)}40`,
-                }}
-              >
-                {langNames[replayLang] || replayLang}
-              </span>
+
+        <div className={cn("flex min-w-0 flex-col", isUser ? "items-end" : "w-full items-start")}>
+          {/* Editorial body: user replies are compact chips; assistant replies
+              are borderless, full-width prose with a comfortable measure. */}
+          <div
+            className={cn(
+              "text-[15px] leading-relaxed",
+              isUser
+                ? "max-w-[88%] rounded-2xl rounded-br-md bg-gradient-to-br from-primary to-primary-hover px-4 py-2.5 text-primary-foreground shadow-sm sm:max-w-[82%]"
+                : "w-full text-[15.5px] leading-[1.8]"
             )}
-            <button
-              type="button"
-              onClick={handleButtonClick}
-              onPointerDown={startPress}
-              onPointerUp={cancelPress}
-              onPointerLeave={cancelPress}
-              onPointerCancel={cancelPress}
-              onContextMenu={(e) => e.preventDefault()}
-              disabled={fetching}
-              aria-label={playing ? "Stop playback" : "Play reply aloud"}
-              title={playing ? "Stop playback" : "Play reply aloud — long-press for voice"}
-              className={cn(
-                "p-1.5 rounded-lg transition-colors disabled:opacity-50",
-                playing ? "bg-primary/15 text-primary hover:bg-primary/25" : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              {fetching ? <Loader2 className="w-4 h-4 animate-spin" /> : playing ? <Square className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-            {menuOpen && (
-              <div
-                className="absolute bottom-full left-0 mb-2 z-50 w-48 rounded-lg border border-border bg-popover shadow-lg p-1.5"
-                role="menu"
-              >
-                <p className="px-2 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                  <ChevronUp className="w-3 h-3" /> Voices · {replayLang === "en" ? "English" : replayLang}
-                </p>
-                {voiceOptions.length === 0 ? (
-                  <p className="px-2 py-1.5 text-xs text-muted-foreground">No server voices — uses browser speech</p>
-                ) : (
-                  voiceOptions.map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => pickVoice(v.id)}
-                      className={cn(
-                        "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors",
-                        v.id === voice ? "bg-primary/15 text-primary font-medium" : "text-foreground hover:bg-accent"
-                      )}
-                    >
-                      {v.label}
-                    </button>
-                  ))
-                )}
+          >
+            {isUser ? (
+              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            ) : (
+              <div className={cn("prose-nexus", streaming && "streaming-caret")}>
+                <ReactMarkdown
+                  components={{
+                    code({ inline, className, children, ...props }: any) {
+                      const match = /language-(\w+)/.exec(className || "");
+                      return !inline && match ? (
+                        <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" {...props}>
+                          {String(children).replace(/\n$/, "")}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>{children}</code>
+                      );
+                    },
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
+            )}
+            {!isUser && playing && (
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted-foreground/15">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-300 ease-linear"
+                  style={{ width: `${Math.round(progress * 100)}%` }}
+                />
               </div>
             )}
           </div>
-        )}
+
+          {meta && <div className="mt-1.5">{meta}</div>}
+
+          {/* Actions row */}
+          {!isUser && message.content && (
+            <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <button
+                type="button"
+                onClick={copyContent}
+                aria-label="Copy reply"
+                title="Copy reply"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+              {replayLang && (
+                <div className="relative flex items-center gap-1">
+                  {replayLang !== "en" && (
+                    <span
+                      title={`This reply is in ${langNames[replayLang] || replayLang}`}
+                      className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide"
+                      style={{
+                        color: getLangColor(replayLang),
+                        backgroundColor: `${getLangColor(replayLang)}1a`,
+                        border: `1px solid ${getLangColor(replayLang)}40`,
+                      }}
+                    >
+                      {langNames[replayLang] || replayLang}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleButtonClick}
+                    onPointerDown={startPress}
+                    onPointerUp={cancelPress}
+                    onPointerLeave={cancelPress}
+                    onPointerCancel={cancelPress}
+                    onContextMenu={(e) => e.preventDefault()}
+                    disabled={fetching}
+                    aria-label={playing ? "Stop playback" : "Play reply aloud"}
+                    title={playing ? "Stop playback" : "Play reply aloud — long-press for voice"}
+                    className={cn(
+                      "rounded-lg p-1.5 transition-colors disabled:opacity-50",
+                      playing ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    {fetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : playing ? <Square className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                  </button>
+                  {menuOpen && (
+                    <div
+                      className="absolute bottom-full left-0 z-50 mb-2 w-48 rounded-xl border border-border bg-popover p-1.5 shadow-popover animate-scale-in"
+                      role="menu"
+                    >
+                      <p className="flex items-center gap-1 px-2 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        <ChevronUp className="h-3 w-3" /> Voices · {replayLang === "en" ? "English" : langNames[replayLang] || replayLang}
+                      </p>
+                      {voiceOptions.length === 0 ? (
+                        <p className="px-2 py-1.5 text-xs text-muted-foreground">No server voices — uses browser speech</p>
+                      ) : (
+                        voiceOptions.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => pickVoice(v.id)}
+                            className={cn(
+                              "w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                              v.id === voice ? "bg-primary/15 font-medium text-primary" : "text-foreground hover:bg-accent"
+                            )}
+                          >
+                            {v.label}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

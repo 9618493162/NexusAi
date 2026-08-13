@@ -17,6 +17,7 @@ const envSchema = z.object({
   GEMINI_MEDIA_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   MISTRAL_API_KEY: z.string().optional(),
+  KIMI_API_KEY: z.string().optional(),
   NVIDIA_NIM_API_KEY: z.string().optional(),
   NVIDIA_IMAGE_API_KEY: z.string().optional(),
   FAL_API_KEY: z.string().optional(),
@@ -27,6 +28,13 @@ const envSchema = z.object({
   DEEPGRAM_API_KEY: z.string().optional(),
   JINA_API_KEY: z.string().optional(),
   OPENWEATHER_API_KEY: z.string().optional(),
+  TINYFISH_API_KEY: z.string().optional(),
+  // Massive.com US stock-market data (ticker reference, news, dividends —
+  // free tier). Server-side only, never sent to the frontend.
+  MASSIVE_API_KEY: z.string().optional(),
+  // MagicSlides.app presentation generation (topic/text → real PPTX + PDF).
+  // Server-side only, never sent to the frontend.
+  MAGICSLIDES_API_KEY: z.string().optional(),
 
   FRONTEND_URL: z.string().min(1, "FRONTEND_URL is required"),
 

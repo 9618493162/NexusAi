@@ -1,9 +1,14 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Image as ImageIcon, Loader2, Download, Sparkles, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence, useMotionValue, useSpring, useReducedMotion } from "framer-motion";
+import { Image as ImageIcon, Loader2, Download, Sparkles, Wand2, ImagePlus, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { DictationButton } from "@/components/ui/dictation-button";
 import { imageService } from "@/services/image.service";
 import { cn } from "@/utils/cn";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface GeneratedImage {
   url: string;
@@ -13,30 +18,63 @@ interface GeneratedImage {
 }
 
 const FALLBACK_MODELS = [
-  { id: "fal-ai/flux/schnell", name: "FLUX Schnell (Fast)" },
-  { id: "fal-ai/flux/dev", name: "FLUX Dev (High Quality)" },
-  { id: "fal-ai/stable-diffusion-xl", name: "Stable Diffusion XL" },
-  { id: "fal-ai/flux-pro", name: "FLUX Pro (Best Quality)" },
+  { id: "fal-ai/flux/schnell", name: "FLUX Schnell" },
+  { id: "fal-ai/flux/dev", name: "FLUX Dev" },
+  { id: "fal-ai/stable-diffusion-xl", name: "SDXL" },
+  { id: "fal-ai/flux-pro", name: "FLUX Pro" },
 ];
 
 const STORAGE_KEY = "nexusai-image-gallery";
 
 export function ImageStudio() {
-  const [prompt, setPrompt] = useState("");
+  // Pre-filled prompt from the Command Center (/image-studio?prompt=...).
+  const [searchParams] = useSearchParams();
+  const [prompt, setPrompt] = useState(() => searchParams.get("prompt") || "");
   const [model, setModel] = useState("fal-ai/flux/schnell");
   const [models, setModels] = useState(FALLBACK_MODELS);
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState<GeneratedImage | null>(null);
+
+  // Subtle 3D tilt on the canvas — follows the mouse like a floating easel.
+  const reduced = useReducedMotion();
+  const tiltRef = useRef<HTMLDivElement>(null);
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+  const springX = useSpring(rotateX, { stiffness: 55, damping: 18 });
+  const springY = useSpring(rotateY, { stiffness: 55, damping: 18 });
+
+  const onCanvasMove = (e: React.MouseEvent) => {
+    if (reduced || !tiltRef.current) return;
+    const rect = tiltRef.current.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    rotateY.set(px * 8);
+    rotateX.set(-py * 6);
+  };
+  const resetTilt = () => { rotateX.set(0); rotateY.set(0); };
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setImages(JSON.parse(saved));
+      if (saved) {
+        const list = JSON.parse(saved);
+        setImages(list);
+        setPreview(list[0] || null);
+      }
     } catch { /* ignore corrupt storage */ }
     imageService
       .getModels()
-      .then(({ data }) => { if (Array.isArray(data) && data.length) setModels(data); })
+      .then(({ data }) => {
+        if (Array.isArray(data) && data.length) {
+          setModels(data);
+          // Keep the current pick if the API still offers it, otherwise fall
+          // back to the first model the API provides (the static default may
+          // not be in the live list).
+          setModel((current) => (data.some((m: { id: string }) => m.id === current) ? current : data[0].id));
+        }
+      })
       .catch(() => { /* fall back to static list */ });
   }, []);
 
@@ -51,7 +89,9 @@ export function ImageStudio() {
     try {
       const { data } = await imageService.generate(prompt.trim(), model);
       if (!data.url) throw new Error("No image URL returned");
-      setImages((prev) => [{ url: data.url, prompt: prompt.trim(), model, createdAt: Date.now() }, ...prev]);
+      const img = { url: data.url, prompt: prompt.trim(), model, createdAt: Date.now() };
+      setImages((prev) => [img, ...prev]);
+      setPreview(img);
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || "Image generation failed. Check your provider API key and credits.");
     } finally {
@@ -59,87 +99,169 @@ export function ImageStudio() {
     }
   };
 
+  const currentPreview = loading ? null : preview;
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ImageIcon className="w-6 h-6 text-primary" /> Image Studio</h1>
-        <p className="text-muted-foreground mt-1">Turn your imagination into images with FLUX and Stable Diffusion</p>
-      </div>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <PageHeader
+        icon={ImageIcon}
+        title="Image Studio"
+        description="Turn your imagination into images — powered by FLUX, Gemini and more"
+      />
 
-      {/* Generator panel */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
-          placeholder="Describe the image you want... e.g. A cyberpunk city at night, neon lights reflecting on wet streets"
-          rows={3}
-          className="w-full resize-none rounded-lg border border-input bg-muted px-4 py-3 text-foreground caret-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-2">
-            {models.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setModel(m.id)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm border transition-colors",
-                  model === m.id ? "bg-primary text-primary-foreground border-primary" : "border-border bg-muted hover:bg-accent"
-                )}
-              >
-                {m.name}
-              </button>
-            ))}
-          </div>
-          <div className="flex-1" />
-          <Button onClick={handleGenerate} disabled={!prompt.trim() || loading}>
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-            {loading ? "Generating..." : "Generate"}
-          </Button>
-        </div>
-        {error && <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/50 rounded-lg p-3">{error}</p>}
-        {loading && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <RefreshCw className="w-4 h-4 animate-spin" /> Creating your image — this can take up to a minute...
-          </div>
-        )}
-      </motion.div>
+      <div className="grid items-start gap-6 lg:grid-cols-[380px_1fr]">
+        {/* ── Layered floating controls ─────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className="h-fit lg:sticky lg:top-6">
+          <div className="rounded-2xl bg-gradient-to-b from-border via-border/60 to-border/20 p-px shadow-float">
+            <div className="surface-glow rounded-2xl bg-card/90 p-5 backdrop-blur-md transition-shadow duration-200">
+              <div className="mb-4 flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Create</h2>
+              </div>
 
-      {/* Gallery */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">Your Gallery {images.length > 0 && <span className="text-muted-foreground text-sm font-normal">({images.length})</span>}</h2>
-        {images.length === 0 && !loading ? (
-          <div className="text-center py-16 text-muted-foreground border border-dashed border-border rounded-xl">
-            <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No images yet</p>
-            <p className="text-sm">Describe an image above and hit Generate</p>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label className="text-xs font-medium text-muted-foreground">Prompt</label>
+                <DictationButton value={prompt} onChange={setPrompt} disabled={loading} onError={setError} />
+              </div>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
+                placeholder="Describe the image you want… e.g. A cyberpunk city at night, neon lights reflecting on wet streets"
+                rows={4}
+                className="w-full resize-none rounded-xl border border-input bg-muted/40 px-3.5 py-3 text-sm text-foreground caret-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+
+              <label className="mb-1.5 mt-4 block text-xs font-medium text-muted-foreground">Model</label>
+              <Select
+                value={model}
+                onChange={setModel}
+                options={models.map((m) => ({ value: m.id, label: m.name }))}
+                searchable
+                ariaLabel="Model"
+                className="w-full"
+              />
+
+              <Button onClick={handleGenerate} disabled={!prompt.trim() || loading} className="mt-5 w-full" size="lg">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                {loading ? "Creating…" : "Generate image"}
+              </Button>
+
+              {error && (
+                <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/8 px-3.5 py-2.5 text-xs text-destructive">{error}</p>
+              )}
+              {loading && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                  Creating your image — this can take up to a minute…
+                </div>
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <AnimatePresence>
-              {images.map((img, index) => (
-                <motion.div
-                  key={img.createdAt + index}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="group relative rounded-xl overflow-hidden border border-border bg-card"
-                >
-                  <img src={img.url} alt={img.prompt} loading="lazy" className="w-full aspect-square object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                    <p className="text-white text-sm line-clamp-2">{img.prompt}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-white/70">{img.model.split("/").pop()}</span>
-                      <a href={img.url} target="_blank" rel="noreferrer" download aria-label="Download image" className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors">
-                        <Download className="w-4 h-4" />
-                      </a>
+        </motion.div>
+
+        {/* ── Floating 3D viewport + generation history rail ────────── */}
+        <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: 0.05 }} className="relative min-w-0">
+          {/* Ambient glow behind the canvas */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-8 rounded-[2.5rem] blur-3xl"
+            style={{ background: "radial-gradient(ellipse, hsl(var(--primary) / 0.14), transparent 65%)" }}
+          />
+
+          {/* 3D easel — gentle tilt that follows the mouse */}
+          <div ref={tiltRef} onMouseMove={onCanvasMove} onMouseLeave={resetTilt} style={{ perspective: 1300 }} className="relative">
+            <motion.div style={{ transformStyle: "preserve-3d", rotateX: springX, rotateY: springY }}>
+              <div className="rounded-2xl bg-gradient-to-b from-border via-border/60 to-border/20 p-px shadow-float">
+                <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl bg-card">
+                  {/* Canvas backdrop */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0"
+                    style={{ background: "radial-gradient(circle at 50% 42%, hsl(var(--primary) / 0.06), transparent 60%), linear-gradient(hsl(var(--muted) / 0.35) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--muted) / 0.35) 1px, transparent 1px)", backgroundSize: "100% 100%, 28px 28px, 28px 28px" }}
+                  />
+                  {currentPreview ? (
+                    <>
+                      <motion.img
+                        key={currentPreview.createdAt}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.35 }}
+                        src={currentPreview.url}
+                        alt={currentPreview.prompt}
+                        className="relative h-full w-full object-contain"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-4">
+                        <p className="line-clamp-2 max-w-[80%] text-sm text-white">{currentPreview.prompt}</p>
+                        <a
+                          href={currentPreview.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          download
+                          aria-label="Download image"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </>
+                  ) : loading ? (
+                    <div className="relative flex flex-col items-center gap-3 text-muted-foreground">
+                      <div className="relative h-20 w-20">
+                        <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-primary" />
+                      </div>
+                      <p className="text-sm">Rendering your image…</p>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                  ) : (
+                    <EmptyState
+                      icon={ImagePlus}
+                      title="Your image will appear here"
+                      description="Describe what you want on the left and hit Generate image."
+                      className="relative border-0 bg-transparent"
+                    />
+                  )}
+                </div>
+              </div>
+            </motion.div>
           </div>
-        )}
+
+          {/* Generation history rail — real images from this device */}
+          <div className="mt-5">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+              Generation history
+              {images.length > 0 && <span className="font-normal text-muted-foreground">({images.length})</span>}
+            </h2>
+            {images.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Generated images will be saved here on this device.</p>
+            ) : (
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                <AnimatePresence initial={false}>
+                  {images.map((img, index) => (
+                    <motion.button
+                      key={img.createdAt + index}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      onClick={() => setPreview(img)}
+                      className={cn(
+                        "group relative aspect-square w-24 shrink-0 overflow-hidden rounded-xl border transition-all",
+                        currentPreview?.createdAt === img.createdAt ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/40"
+                      )}
+                      aria-label={`View: ${img.prompt}`}
+                    >
+                      <img src={img.url} alt={img.prompt} loading="lazy" className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                      <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <p className="line-clamp-2 text-left text-[9px] leading-tight text-white">{img.prompt}</p>
+                      </div>
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+        </motion.div>
       </div>
     </div>
   );

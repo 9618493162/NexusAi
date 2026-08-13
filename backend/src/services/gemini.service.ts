@@ -18,6 +18,9 @@ export async function* streamGeminiChat(
           })),
           generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
         }),
+        // A stuck upstream must never wedge the whole provider — abort after a
+        // generous budget so the caller surfaces an error instead of hanging.
+        signal: AbortSignal.timeout(90_000),
       }
     );
 

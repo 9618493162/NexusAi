@@ -3,7 +3,7 @@ import { useAuthStore } from "@/store/auth.store";
 
 export const chatService = {
   getModels: () => api.get("/chat/models"),
-  streamChat: async (message: string, conversationId?: string, model?: string, language?: string, languageCode?: string) => {
+  streamChat: async (message: string, conversationId?: string, model?: string, language?: string, languageCode?: string, search?: boolean, save?: boolean, fileId?: string) => {
     const doFetch = (token: string | null) =>
       fetch(`${api.defaults.baseURL}/chat/stream`, {
         method: "POST",
@@ -11,7 +11,7 @@ export const chatService = {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message, conversationId, model, language, languageCode }),
+        body: JSON.stringify({ message, conversationId, model, language, languageCode, search, save, fileId }),
       });
 
     let response = await doFetch(useAuthStore.getState().accessToken);

@@ -17,6 +17,11 @@ model User {
   githubId      String?   @unique
   provider      String?   @default("local")
   isVerified    Boolean   @default(false)
+  theme         String    @default("system") // light | dark | system — synced across devices
+  // Speech-recognition language for live dictation ("Dictate in") — synced across devices.
+  dictateLang   String?
+  // Translation target for dictated speech ("Dictate to") — synced across devices.
+  dictateTo     String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -26,8 +31,177 @@ model User {
   refreshTokens RefreshToken[]
   usageStats    UsageStat[]
   languageColors LanguageColor[]
+  voiceSessions VoiceSession[]
+  ownedProjects Project[]
+  projectMemberships ProjectMember[]
+  projectInvites ProjectInvitation[]
+  projectFilesAdded ProjectFile[]
+  projectConversationsAdded ProjectConversation[]
+  projectNotes ProjectNote[]
+  projectTasksAssigned ProjectTask[] @relation("ProjectTaskAssignee")
+  projectTasksCreated ProjectTask[] @relation("ProjectTaskCreator")
+  projectActivity ProjectActivity[]
+  workflows Workflow[]
+  workflowRuns WorkflowRun[]
+  meetings      Meeting[]
+  research      Research[]
+  documents     Document[]
+  agents        Agent[]
+  agentRuns     AgentRun[]
 
   @@map("users")
+}
+
+// ── Collaborative workspace (purely additive; existing models untouched) ──
+
+// A project is the shared container for files, conversations, notes, tasks
+// and activity. Access is controlled by ProjectMember rows — every project
+// query is scoped to the caller's membership (backend-enforced).
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String? // emoji or short label, optional
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner          User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members        ProjectMember[]
+  invitations    ProjectInvitation[]
+  files          ProjectFile[]
+  conversations  ProjectConversation[]
+  notes          ProjectNote[]
+  tasks          ProjectTask[]
+  activities     ProjectActivity[]
+
+  @@index([ownerId])
+  @@map("projects")
+}
+
+// Membership: who can see and touch a project. Roles are enforced server-side:
+// owner (manage members, delete), editor (create/edit content), viewer (read).
+model ProjectMember {
+  projectId String
+  userId    String
+  role      String   @default("editor") // owner | editor | viewer
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("project_members")
+}
+
+// Invitation: a user is only added as a member after they accept. The owner
+// (or another editor) invites by email; the recipient accepts/rejects from
+// their own workspace. No one is marked a member before backend confirmation.
+model ProjectInvitation {
+  id          String   @id @default(uuid())
+  projectId   String
+  email       String
+  role        String   @default("editor") // editor | viewer (never owner)
+  status      String   @default("pending") // pending | accepted | declined
+  invitedById String?
+  createdAt   DateTime @default(now())
+  respondedAt DateTime?
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invitedBy User?   @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([email])
+  @@map("project_invitations")
+}
+
+// Real files linked into a project (ownership of the underlying file is
+// checked when it's added; access then follows project membership).
+model ProjectFile {
+  id        String   @id @default(uuid())
+  projectId String
+  fileId    String
+  addedById String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file    File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  addedBy User?   @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, fileId])
+  @@index([projectId])
+  @@map("project_files")
+}
+
+// Existing conversations linked into a project and open to its members.
+model ProjectConversation {
+  id             String   @id @default(uuid())
+  projectId      String
+  conversationId String
+  addedById      String?
+  createdAt      DateTime @default(now())
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  addedBy      User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, conversationId])
+  @@index([projectId])
+  @@map("project_conversations")
+}
+
+// Shared notes with a lightweight editor (title + content, real persistence).
+model ProjectNote {
+  id          String   @id @default(uuid())
+  projectId   String
+  title       String
+  content     String   @db.Text
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("project_notes")
+}
+
+// Simple kanban task: todo | in_progress | done, with optional assignee.
+model ProjectTask {
+  id          String   @id @default(uuid())
+  projectId   String
+  title       String
+  status      String   @default("todo") // todo | in_progress | done
+  assigneeId  String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("ProjectTaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("project_tasks")
+}
+
+// Server-recorded activity timeline — every event is written by the backend
+// on a real mutation; nothing is synthesized on the client.
+model ProjectActivity {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String?
+  actorName String? // snapshot of the actor's display name at event time
+  type      String // created | member_added | file_added | conversation_added | note_added | note_updated | task_added | task_moved | task_deleted
+  detail    String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("project_activity")
 }
 
 // Per-user badge colors for spoken-reply languages, synced across devices.
@@ -52,6 +226,7 @@ model Conversation {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages Message[]
+  projectLinks ProjectConversation[]
 
   @@index([userId])
   @@index([isPinned])
@@ -93,16 +268,68 @@ model File {
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages     Message[]
+  projectLinks ProjectFile[]
 
   @@index([userId])
   @@map("files")
+}
+
+// Per-user voice-studio sessions: real transcripts, translations and analyses
+// persisted so history follows the user across devices.
+model VoiceSession {
+  id          String   @id @default(uuid())
+  transcript  String   @db.Text
+  translation String?  @db.Text
+  analysis    String?  @db.Text
+  sourceLang  String   @default("en")
+  targetLang  String   @default("en")
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("voice_sessions")
+}
+
+// AI Meeting Intelligence — a real meeting record. Everything here is real
+// data the user produced: the live Deepgram transcript (via the existing
+// voice proxy), its translation, and the AI summary/action items generated
+// from the transcript through the existing chat pipeline. No fake
+// participants or video — the backend has no WebRTC/LiveKit infrastructure,
+// so meetings are honest single-participant (user + AI) sessions.
+model Meeting {
+  id          String   @id @default(uuid())
+  title       String
+  status      String   @default("ended") // live | ended
+  sourceLang  String   @default("en")
+  targetLang  String   @default("en")
+  transcript  String   @default("") @db.Text
+  translation String?  @db.Text
+  summary     String?  @db.Text
+  actionItems String?  @db.Text // newline-separated items generated from the real transcript
+  notes       String?  @db.Text
+  durationSec Int      @default(0)
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("meetings")
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
+  userAgent String?  // raw User-Agent at creation — powers the sessions list
   expiresAt DateTime
+  lastUsedAt DateTime @default(now())
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -124,4 +351,176 @@ model UsageStat {
   @@index([userId])
   @@index([createdAt])
   @@map("usage_stats")
+}
+
+// AI Workflow Builder — visual automation over the EXISTING services. The
+// node graph is stored as JSON (nodes = definitions, edges = connections);
+// execution is a real sequential pass through chat/file/voice/image services,
+// ownership-scoped to the user like every other feature.
+model Workflow {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  nodes       Json     // [{id, type, x, y, config}]
+  edges       Json     // [{id, from, fromPort, to}]
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs WorkflowRun[]
+
+  @@index([userId])
+  @@map("workflows")
+}
+
+model WorkflowRun {
+  id         String   @id @default(uuid())
+  workflowId String
+  userId     String
+  // pending | running | completed | failed | canceled
+  status     String   @default("pending")
+  nodeStates Json?    // {nodeId: {status, startedAt?, endedAt?, error?}}
+  result     String?  // final text output of the workflow
+  outputs    Json?    // {nodeId: serialized non-text outputs (image urls, tts refs)}
+  error      String?
+  startedAt  DateTime?
+  endedAt    DateTime?
+  createdAt  DateTime @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([userId])
+  @@map("workflow_runs")
+}
+
+// AI Agents Studio — user-defined agents that run REAL NexusAI capabilities.
+// Each agent carries a system prompt + a model, and can be granted tools that
+// wire into existing services: web search (TinyFish via search.service) and the
+// user's own files (ownership-scoped retrieval). Runs stream real AI output
+// through the existing chat pipeline and persist per-agent history.
+model Agent {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  systemPrompt String   @db.Text
+  model        String   @default("gemini-flash-latest")
+  tools        Json     // ["web", "files"]
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs AgentRun[]
+
+  @@index([userId])
+  @@map("agents")
+}
+
+model AgentRun {
+  id         String   @id @default(uuid())
+  agentId    String
+  userId     String
+  input      String   @db.Text
+  output     String?  @db.Text
+  // pending | running | completed | failed
+  status     String   @default("pending")
+  error      String?
+  sources    Json?    // real tool context collected for this run (web + files)
+  durationMs Int?
+  createdAt  DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([userId])
+  @@map("agent_runs")
+}
+
+// Research & Deep Search sessions: a real query, the sources actually found
+// (web results from the TinyFish search + the user's own files), and the AI
+// synthesis with per-claim citations. Everything is ownership-scoped.
+model Research {
+  id         String   @id @default(uuid())
+  query      String
+  // quick | deep — deep allows more sources and a longer report
+  mode       String   @default("quick")
+  summary    String?  @db.Text   // AI executive summary / findings
+  report     String?  @db.Text   // full synthesized report if generated
+  status     String   @default("draft") // draft | completed | failed
+  error      String?
+  userId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources ResearchSource[]
+
+  @@index([userId])
+  @@map("research")
+}
+
+model ResearchSource {
+  id         String   @id @default(uuid())
+  researchId String
+  // web | file
+  kind       String
+  title      String
+  url        String?
+  snippet    String   @db.Text
+  date       String?
+  // relevance score from the search provider when available (0-1)
+  relevance  Float?
+  fileId     String?
+  createdAt  DateTime @default(now())
+
+  research Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  @@index([researchId])
+  @@map("research_sources")
+}
+
+// Document & Presentation Studio: AI-generated documents stored as real
+// markdown (the source of truth), with server-side exports to .md / .html /
+// .pptx. Source links point at the real resources the document was built from.
+model Document {
+  id         String   @id @default(uuid())
+  title      String
+  // report | presentation | notes | article | proposal
+  type       String   @default("report")
+  content    String   @db.Text   // markdown body (title handled separately)
+  outline    String?  @db.Text   // editable AI outline before generation
+  // What the document was created from (real backend resources).
+  sourceType String?
+  sourceId   String?
+  sourceName String?
+  // MagicSlides-generated deck (real PPTX + PDF download URLs, when used).
+  magicSlidesUrl  String?
+  magicSlidesPdf  String?
+  magicSlidesId   String?
+  userId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  revisions  DocumentRevision[]
+
+  @@index([userId])
+  @@map("documents")
+}
+
+// Real version history — every save snapshots the previous content.
+model DocumentRevision {
+  id         String   @id @default(uuid())
+  documentId String
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_revisions")
 }

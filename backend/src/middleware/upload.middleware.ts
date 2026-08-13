@@ -2,7 +2,7 @@ import multer from "multer";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
-const storage = multer.diskStorage({
+export const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
   },
@@ -60,5 +60,25 @@ export const upload = multer({
   fileFilter,
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB
+  },
+});
+
+// Profile-picture uploads: images only, much smaller limit, same storage so
+// the file lands in uploads/ and is served back through /api/auth/avatar.
+const AVATAR_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp"]);
+
+export const avatarUpload = multer({
+  storage,
+  fileFilter: (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const ext = path.extname(file.originalname).slice(1).toLowerCase();
+    const mime = (file.mimetype || "").toLowerCase();
+    if (AVATAR_EXTENSIONS.has(ext) && mime.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Avatar must be a JPG, PNG, GIF or WEBP image."));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
   },
 });

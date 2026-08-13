@@ -4,6 +4,7 @@ import path from "path";
 import { env } from "../config/env";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import { logger } from "../config/logger";
+import { prisma } from "../config/database";
 
 const DEEPGRAM_BASE = "https://api.deepgram.com/v1";
 const STT_MODEL = "nova-3";
@@ -210,9 +211,22 @@ function validVoice(voice?: string): string {
   return TTS_VOICES.some((v) => v.id === voice) ? voice! : DEFAULT_VOICE;
 }
 
-// Speech-to-text: send raw audio bytes, get back the transcript.
-// Deepgram's Nova-3 accepts webm/ogg/wav/mp3/m4a — whatever the browser mic records.
-export async function transcribeAudio(audioBuffer: Buffer, contentType: string, language?: string): Promise<string> {
+// Speech-to-text: send raw audio bytes, get back the transcript plus per-word
+// timestamps (word, start, end in seconds) so the studio can render a
+// seekable, highlighted transcript. Deepgram's Nova-3 accepts
+// webm/ogg/wav/mp3/m4a — whatever the browser mic records.
+export interface TranscriptWord {
+  word: string;
+  start: number;
+  end: number;
+  confidence?: number;
+}
+
+export async function transcribeAudio(
+  audioBuffer: Buffer,
+  contentType: string,
+  language?: string
+): Promise<{ transcript: string; words: TranscriptWord[] }> {
   if (!dgKey()) throw new Error("Deepgram is not configured (DEEPGRAM_API_KEY missing)");
   const langParam = isValidLanguage(language) ? `&language=${language}` : "";
   const res = await fetch(
@@ -231,7 +245,16 @@ export async function transcribeAudio(audioBuffer: Buffer, contentType: string, 
     throw new Error(`Deepgram STT error ${res.status}: ${body.slice(0, 200)}`);
   }
   const data = (await res.json()) as any;
-  return data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+  const alt = data?.results?.channels?.[0]?.alternatives?.[0];
+  const words: TranscriptWord[] = Array.isArray(alt?.words)
+    ? alt.words.map((w: any) => ({
+        word: typeof w?.word === "string" ? w.word : "",
+        start: typeof w?.start === "number" ? w.start : 0,
+        end: typeof w?.end === "number" ? w.end : 0,
+        ...(typeof w?.confidence === "number" ? { confidence: w.confidence } : {}),
+      }))
+    : [];
+  return { transcript: alt?.transcript || "", words };
 }
 
 // Text-to-speech: render text to speech audio (mp3), returned as raw bytes.
@@ -286,4 +309,61 @@ export async function synthesizeSpeechMultilingual(
   } finally {
     tts.close();
   }
+}
+
+// ---- Voice sessions (persisted history) ----
+// Transcripts, translations and analyses are stored per user so the studio's
+// history follows them across devices. The FK is indexed and cascades on user
+// deletion (same convention as every other user-owned table).
+
+export interface VoiceSessionInput {
+  transcript: string;
+  translation?: string;
+  analysis?: string;
+  sourceLang?: string;
+  targetLang?: string;
+}
+
+export interface VoiceSessionUpdate {
+  translation?: string;
+  analysis?: string;
+  sourceLang?: string;
+  targetLang?: string;
+}
+
+export async function createVoiceSession(userId: string, data: VoiceSessionInput) {
+  return prisma.voiceSession.create({
+    data: {
+      transcript: data.transcript.slice(0, 20000),
+      translation: data.translation ? data.translation.slice(0, 20000) : null,
+      analysis: data.analysis ? data.analysis.slice(0, 20000) : null,
+      sourceLang: data.sourceLang || "en",
+      targetLang: data.targetLang || "en",
+      userId,
+    },
+  });
+}
+
+export async function listVoiceSessions(userId: string, limit = 50) {
+  return prisma.voiceSession.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}
+
+export async function updateVoiceSession(userId: string, id: string, data: VoiceSessionUpdate) {
+  return prisma.voiceSession.updateMany({
+    where: { id, userId },
+    data: {
+      ...(data.translation !== undefined ? { translation: data.translation.slice(0, 20000) } : {}),
+      ...(data.analysis !== undefined ? { analysis: data.analysis.slice(0, 20000) } : {}),
+      ...(data.sourceLang ? { sourceLang: data.sourceLang } : {}),
+      ...(data.targetLang ? { targetLang: data.targetLang } : {}),
+    },
+  });
+}
+
+export async function deleteVoiceSession(userId: string, id: string) {
+  return prisma.voiceSession.deleteMany({ where: { id, userId } });
 }

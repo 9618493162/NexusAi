@@ -8,4 +8,7 @@ const router = Router();
 router.get("/language-colors", authMiddleware, settingsController.getLanguageColors);
 router.put("/language-colors", authMiddleware, settingsController.putLanguageColors);
 
+// Fires a real test email to the signed-in user (Settings → Integrations).
+router.post("/test-email", authMiddleware, settingsController.testEmail);
+
 export default router;

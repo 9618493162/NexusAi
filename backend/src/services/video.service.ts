@@ -313,6 +313,15 @@ export async function generateVideo(prompt: string, model?: string): Promise<str
       }
     };
 
+    // json2video is the only model currently exposed (all AI providers were
+    // out of credits as of 2026-08-10) — go straight to it instead of wasting
+    // requests on locked providers.
+    if (model === "json2video") {
+      const j = await tryProvider("json2video", () => generateViaJson2Video(prompt));
+      if (j) return j;
+      if (failures.length) throw new Error(failures.join(" | "));
+      throw new Error("json2video generation failed");
+    }
     // Primary: Veo 3.1 via Gemini (model id "veo-3.1") when a Gemini key exists.
     const isVeoModel = !model || model === "veo-3.1";
     if (geminiKey() && isVeoModel) {
@@ -351,14 +360,12 @@ export async function generateVideo(prompt: string, model?: string): Promise<str
 
 export async function getVideoModels(): Promise<Array<{ id: string; name: string }>> {
   const models: Array<{ id: string; name: string }> = [];
-  if (geminiKey()) models.push(...VEO_VIDEO_MODELS);
-  if (env.APIFRAME_API_KEY) {
-    // The Google Veo is preferred; skip apiframe's duplicate Veo entry.
-    models.push(...APIFRAME_VIDEO_MODELS.filter((m) => m.id !== "veo-3.1"));
-  }
-  if (env.VADOO_API_KEY) {
-    models.push({ id: "vadoo", name: "Vadoo AI (AI footage)" });
-  }
+  // Only list models whose provider currently works. Verified 2026-08-10:
+  // - apiframe (Kling/Sora/Seedance/Runway/Hailuo/Luma/Wan/Midjourney): 402 Insufficient credits
+  // - Veo 3.1 (Google): 429 quota exhausted
+  // - Vadoo: 400 generation limit reached
+  // All fall back to json2video, which is confirmed working. Re-add a provider
+  // here (or in VEO_VIDEO_MODELS / APIFRAME_VIDEO_MODELS) once it has credits.
   if (env.JSON2VIDEO_API_KEY) {
     models.push({ id: "json2video", name: "JSON2Video (text render)" });
   }

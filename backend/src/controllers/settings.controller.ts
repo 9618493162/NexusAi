@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../config/database";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { logger } from "../config/logger";
+import { sendTestEmail } from "../utils/email";
 
 // The same palette the frontend offers — only these values are stored so the
 // badge styles stay valid.
@@ -19,6 +20,29 @@ const ALLOWED_COLORS = new Set([
   "#f43f5e",
   "#06b6d4",
 ]);
+
+export async function testEmail(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    // Fresh email from the DB (never trust the JWT claim alone).
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { email: true },
+    });
+    if (!user?.email) {
+      res.status(400).json({ error: "Your account has no email address to send to." });
+      return;
+    }
+    const { provider, from, fellBackFromDomain } = await sendTestEmail(user.email);
+    if (provider === "none") {
+      res.status(503).json({ error: "No email provider is configured. Add RESEND_API_KEY or SMTP_HOST to backend/.env." });
+      return;
+    }
+    res.json({ ok: true, to: user.email, provider, from, fellBackFromDomain });
+  } catch (error: any) {
+    logger.error("Test email error:", error);
+    res.status(500).json({ error: error.message || "Could not send test email" });
+  }
+}
 
 export async function getLanguageColors(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {

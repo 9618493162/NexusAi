@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import * as chatService from "../services/chat.service";
+import * as searchService from "../services/search.service";
 import { logger } from "../config/logger";
 
 export const chatValidators = [
@@ -10,6 +11,9 @@ export const chatValidators = [
   body("model").optional().isString(),
   body("language").optional().isString().isLength({ min: 2, max: 20 }),
   body("languageCode").optional().isString().isLength({ min: 2, max: 10 }),
+  body("search").optional().isBoolean(),
+  body("save").optional().isBoolean(),
+  body("fileId").optional().isUUID(),
 ];
 
 export async function streamChat(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -20,29 +24,54 @@ export async function streamChat(req: AuthenticatedRequest, res: Response): Prom
   }
 
   try {
-    const { message, conversationId, model, language, languageCode } = req.body;
+    const { message, conversationId, model, language, languageCode, search, save, fileId } = req.body;
     const userId = req.user?.userId;
 
-    let convId = conversationId;
-    if (!convId) {
-      const conv = await chatService.createConversation(userId!, message.slice(0, 50));
-      convId = conv.id;
+    // save=false is a pure pass-through (e.g. translating dictated speech): no
+    // conversation is created and nothing is persisted — the model sees just
+    // this message. Defaults to the existing behavior.
+    const shouldSave = save !== false;
+
+    let convId: string | undefined = conversationId;
+    let history: Array<{ role: string; content: string; fileId?: string | null }>;
+    if (shouldSave) {
+      if (!convId) {
+        const conv = await chatService.createConversation(userId!, message.slice(0, 50));
+        convId = conv.id;
+      }
+      await chatService.saveMessage(convId, message, "user", model, userId, languageCode, fileId);
+      history = await chatService.getConversationMessages(convId);
+    } else {
+      history = [{ role: "user", content: message }];
     }
 
-    await chatService.saveMessage(convId, message, "user", model, userId, languageCode);
-
-    const history = await chatService.getConversationMessages(convId);
+    // RAG-lite: retrieve the extracted text of every attached file in this
+    // conversation (ownership-checked) and append it to the message that
+    // referenced it. This re-runs on every turn, so context comes from the
+    // backend at reply time — not from text inlined by the browser.
+    const fileContexts = await chatService.getFileContexts(userId!, history);
     const messages = history.map((m) => ({
       role: m.role as "user" | "assistant" | "system",
-      content: m.content,
+      content: m.fileId && fileContexts[m.fileId] ? m.content + fileContexts[m.fileId] : m.content,
     }));
 
     const languageDirective = language
       ? ` Reply in ${language} — translate your answer into ${language} unless the user writes in another language and asks you not to.`
       : "";
+    let systemContent = `You are NexusAI, a helpful AI assistant. Be concise and accurate.${languageDirective}`;
+
+    // Optional live web search (TinyFish, free): fetch results for the user's
+    // message and ground the reply in them. Best-effort — a search failure
+    // never blocks the chat itself.
+    if (search) {
+      const results = await searchService.searchWeb(message, { recencyMinutes: 525600 });
+      if (results.length) {
+        systemContent += `\n\n${searchService.formatSearchResults(message, results)}`;
+      }
+    }
     const systemMessage = {
       role: "system" as const,
-      content: `You are NexusAI, a helpful AI assistant. Be concise and accurate.${languageDirective}`,
+      content: systemContent,
     };
 
     const allMessages = [systemMessage, ...messages];
@@ -60,8 +89,9 @@ export async function streamChat(req: AuthenticatedRequest, res: Response): Prom
 
     // Never persist an empty assistant reply — a blank message in history can
     // make some providers (e.g. Mistral) return empty streams afterwards.
-    if (fullResponse.trim()) {
-      await chatService.saveMessage(convId, fullResponse, "assistant", model, userId, languageCode);
+    // (With save=false nothing is persisted at all.)
+    if (fullResponse.trim() && shouldSave) {
+      await chatService.saveMessage(convId!, fullResponse, "assistant", model, userId, languageCode);
     }
 
     res.write(`data: ${JSON.stringify({ done: true, conversationId: convId })}\n\n`);

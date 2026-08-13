@@ -6,6 +6,7 @@ const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 // Models verified to be served on the serverless API for this account.
 // Ordered best-first for the frontend model picker.
 export const NVIDIA_MODELS = {
+  NEMOTRON_3_ULTRA_550B: "nvidia/nemotron-3-ultra-550b-a55b",
   NEMOTRON_SUPER_49B: "nvidia/llama-3.3-nemotron-super-49b-v1",
   NEMOTRON_3_SUPER_120B: "nvidia/nemotron-3-super-120b-a12b",
   NEMOTRON_3_NANO_30B: "nvidia/nemotron-3-nano-30b-a3b",
@@ -14,6 +15,7 @@ export const NVIDIA_MODELS = {
 } as const;
 
 export const NVIDIA_MODEL_NAMES: Record<string, string> = {
+  [NVIDIA_MODELS.NEMOTRON_3_ULTRA_550B]: "Nemotron 3 Ultra 550B (NVIDIA)",
   [NVIDIA_MODELS.NEMOTRON_SUPER_49B]: "Nemotron Super 49B (NVIDIA)",
   [NVIDIA_MODELS.NEMOTRON_3_SUPER_120B]: "Nemotron 3 Super 120B (NVIDIA)",
   [NVIDIA_MODELS.NEMOTRON_3_NANO_30B]: "Nemotron 3 Nano 30B (NVIDIA)",
@@ -45,6 +47,9 @@ export async function* streamNvidiaChat(
         temperature: 0.7,
         max_tokens: MAX_TOKENS_BY_MODEL[model] ?? 4096,
       }),
+      // Generous budget — serverless cold starts can take ~70s — but a stuck
+      // upstream must still never wedge the provider pool.
+      signal: AbortSignal.timeout(180_000),
     });
 
     if (!response.ok) {
