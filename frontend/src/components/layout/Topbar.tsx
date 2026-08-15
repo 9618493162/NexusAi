@@ -103,11 +103,11 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
   const title = TITLES.find((t) => t.match(location.pathname))?.title ?? "NexusAI";
 
   return (
-    <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
+    <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border/70 bg-background/75 px-4 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04)] sm:px-6">
       <button
         onClick={onOpenMobile}
         aria-label="Open navigation"
-        className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+        className="rounded-lg p-2 text-muted-foreground transition-[transform,background-color,color] duration-150 ease-fluid hover:bg-accent hover:text-foreground active:scale-95 lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -123,7 +123,7 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
           onClick={onOpenPalette}
           aria-label="Search (Ctrl+K)"
           title="Search (Ctrl+K)"
-          className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-accent sm:w-56"
+          className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground shadow-sm transition-[transform,background-color,border-color,color] duration-200 ease-fluid hover:border-primary/30 hover:bg-accent hover:text-foreground active:scale-[0.98] sm:w-56"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="hidden flex-1 text-left sm:block">Search…</span>
@@ -141,7 +141,7 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
             aria-label="Account menu"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary/80 to-indigo-500 text-sm font-semibold text-primary-foreground ring-1 ring-border transition-transform hover:scale-105"
+            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary/80 to-indigo-500 text-sm font-semibold text-primary-foreground ring-1 ring-border shadow-sm transition-[transform,box-shadow] duration-200 ease-fluid hover:scale-105 hover:shadow-md active:scale-95"
           >
             <AvatarImage
               src={user?.avatar}
@@ -158,7 +158,7 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
                 role="menu"
                 aria-label="Account menu"
                 onKeyDown={onMenuKeyDown}
-                className="absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-popover shadow-popover animate-scale-in"
+                className="glass absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-xl animate-scale-in"
               >
                 <div className="border-b border-border px-4 py-3">
                   <p className="truncate text-sm font-semibold">{user?.name || "User"}</p>

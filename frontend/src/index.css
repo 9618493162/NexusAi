@@ -91,7 +91,36 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* ---------- Fluid motion tokens (Apple-style easings) ---------- */
+  :root {
+    --ease-fluid: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --duration-fast: 150ms;
+    --duration-base: 220ms;
+  }
+
+  /* Smooth theme switching: surfaces ease between light/dark instead of
+     snapping. Scoped to the common surface classes so it stays cheap. */
+  @media (prefers-reduced-motion: no-preference) {
+    body,
+    .card-surface,
+    .bg-card,
+    .bg-popover,
+    .bg-sidebar,
+    .bg-muted {
+      transition: background-color 0.28s ease, border-color 0.28s ease, color 0.28s ease;
+    }
+  }
+
+  /* Instant physical press feedback on every plain button (the Button
+     component layers scale + brightness on top of this). */
+  @media (pointer: fine) {
+    button:not(:disabled):active,
+    [role="button"]:not([aria-disabled="true"]):active {
+      filter: brightness(0.94);
+    }
   }
 
   /* ---------- Focus visibility ---------- */
@@ -156,12 +185,33 @@
     box-shadow: var(--shadow-card);
   }
   .card-hover {
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    transition: transform var(--duration-base) var(--ease-fluid), box-shadow var(--duration-base) var(--ease-fluid), border-color var(--duration-base) var(--ease-fluid), background-color var(--duration-base) ease;
+    will-change: transform;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: hsl(var(--primary) / 0.35);
     box-shadow: var(--shadow-float);
+  }
+
+  /* ---------- Glass material ---------- */
+  .glass {
+    background: hsl(var(--card) / 0.72);
+    -webkit-backdrop-filter: blur(16px) saturate(1.45);
+    backdrop-filter: blur(16px) saturate(1.45);
+    border: 1px solid hsl(var(--border) / 0.65);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.05),
+      var(--shadow-popover);
+  }
+  .glass-strong {
+    background: hsl(var(--card) / 0.86);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    backdrop-filter: blur(24px) saturate(1.6);
+    border: 1px solid hsl(var(--border) / 0.75);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.06),
+      var(--shadow-popover);
   }
 
   /* ---------- Text helpers ---------- */
@@ -436,6 +486,19 @@
 }
 .nexus-ring-spin-rev-fast {
   animation: nexus-spin-rev 15s linear infinite;
+}
+
+/* Reduced transparency — honour users who ask for less translucency:
+   kill every backdrop blur and push glass surfaces to near-opaque. */
+@media (prefers-reduced-transparency: reduce) {
+  * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .glass,
+  .glass-strong {
+    background: hsl(var(--card) / 0.98);
+  }
 }
 
 /* Reduced motion */

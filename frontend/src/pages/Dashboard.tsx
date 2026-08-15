@@ -5,14 +5,14 @@ import {
   MessageSquare, Image as ImageIcon, FileText, Video, Bot, BarChart3, Code2,
   MessagesSquare, Pin, ArrowRight, Coins, Activity, Sparkles, Paperclip,
   Mic, ArrowUpRight, Send, Clock, Brain, FolderKanban, Users, StickyNote, CheckSquare,
-  CalendarClock, Bookmark, TrendingUp, Presentation,
+  CalendarClock, Bookmark, TrendingUp, Presentation, UploadCloud, AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { chatService } from "@/services/chat.service";
 import { detectIntent } from "@/utils/intentRouter";
 import { matchResourceCommand } from "@/utils/resourceRouter";
 import { usageService } from "@/services/usage.service";
-import { fileService } from "@/services/file.service";
+import { fileService, FILE_SIZE_LIMIT } from "@/services/file.service";
 import { voiceService } from "@/services/voice.service";
 import { projectsService } from "@/services/projects.service";
 import { meetingsService, Meeting } from "@/services/meetings.service";
@@ -65,6 +65,55 @@ export function Dashboard() {
   const [promptsCount, setPromptsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  // ── Drop-to-analyze on the hero: real File Intelligence upload, then the
+  //    Files page opens the file's analysis panel via /files?open=<id>. ──
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const dragDepthRef = useRef(0); // dragenter/leave counter (child flicker)
+
+  const uploadToFiles = async (file: File) => {
+    if (file.size > FILE_SIZE_LIMIT) {
+      setUploadError("File is too large. Maximum size is 50MB.");
+      return;
+    }
+    setUploadError("");
+    setUploading(true);
+    try {
+      const { data } = await fileService.upload(file);
+      // The Files page deep-links ?open=<id> into that file's analysis panel.
+      navigate(`/files?open=${data.id}`);
+    } catch (err: any) {
+      const msg = err.response?.data?.error;
+      setUploadError(typeof msg === "string" && msg ? msg : "Upload failed. Please try again.");
+      console.error("Dashboard drop upload failed:", err);
+    } finally {
+      setUploading(false);
+      setDragActive(false);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setDragActive(true);
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDragActive(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void uploadToFiles(file);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -243,8 +292,16 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-      {/* ── Hero: command first, Nexus Core beside it ─────────────────── */}
-      <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+      {/* ── Hero: command first, Nexus Core beside it. The whole hero is a
+             drop target — a dropped file goes through the real File
+             Intelligence upload, then opens the analysis panel. ── */}
+      <div
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="grid items-center gap-8 lg:grid-cols-[1fr_auto]"
+      >
         <div className="min-w-0">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">NexusAI</p>
@@ -263,16 +320,35 @@ export function Dashboard() {
           >
             <form
               onSubmit={(e) => { e.preventDefault(); startCommand(); }}
-              className="group rounded-2xl border border-border/80 bg-card/90 p-2 shadow-popover backdrop-blur transition-all duration-200 focus-within:border-primary/60"
+              className={cn(
+                "group relative rounded-2xl border bg-card/90 p-2 shadow-popover backdrop-blur transition-all duration-200",
+                dragActive
+                  ? "border-primary/80 glow-primary"
+                  : uploading
+                    ? "border-primary/40"
+                    : "border-border/80 focus-within:border-primary/60"
+              )}
             >
+              {/* Drop overlay — covers the bar while a file hovers over the hero */}
+              {dragActive && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl bg-card/95 backdrop-blur-sm">
+                  <UploadCloud className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-semibold">Drop to analyze with AI File Intelligence</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 px-2">
-                <Sparkles className="ml-1 h-5 w-5 shrink-0 text-primary" />
+                {uploading ? (
+                  <NexusCore size={18} state="thinking" />
+                ) : (
+                  <Sparkles className="ml-1 h-5 w-5 shrink-0 text-primary" />
+                )}
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Ask NexusAI anything…"
+                  placeholder={uploading ? "Uploading through File Intelligence…" : "Ask NexusAI anything…"}
                   aria-label="Ask NexusAI anything"
-                  className="h-12 w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+                  disabled={uploading}
+                  className="h-12 w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground disabled:cursor-wait"
                 />
                 <button
                   type="button"
@@ -316,6 +392,19 @@ export function Dashboard() {
                 </button>
               ))}
             </div>
+            {/* Drop status — real upload state, and a hint for discoverability */}
+            {uploadError && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {uploadError}
+              </p>
+            )}
+            {!uploadError && (
+              <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground/70">
+                <UploadCloud className="h-3.5 w-3.5" />
+                {uploading ? "Uploading and extracting text through File Intelligence…" : "Drop a file anywhere on the card to analyze it"}
+              </p>
+            )}
           </motion.div>
 
           {/* Quick actions — dimensional floating tiles (perspective + lift) */}
