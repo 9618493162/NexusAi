@@ -167,6 +167,26 @@ async function checkTinyFish(): Promise<ProviderStatus> {
   return { id: "tinyfish", name: "TinyFish", usedFor: "Web search (chat)", configured: true, status: "invalid", detail: `Key rejected (HTTP ${http})` };
 }
 
+async function checkGrid(): Promise<ProviderStatus> {
+  const configured = !!env.GRID_API_KEY;
+  if (!configured) return { id: "grid", name: "AI Power Grid", usedFor: "Chat (fallback)", configured: false, status: "configured" };
+  // /v1/models is public, so validate with a real 1-token completion: a valid
+  // key returns 200, a rejected one 401, and 503 means no workers are online.
+  let http = 0;
+  try {
+    const res = await fetch("https://api.aipowergrid.io/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GRID_API_KEY}` },
+      body: JSON.stringify({ model: "gpt-oss-120b", messages: [{ role: "user", content: "hi" }], max_tokens: 1, stream: false }),
+      signal: AbortSignal.timeout(8000),
+    });
+    http = res.status;
+  } catch { /* network error — http stays 0 */ }
+  if (http === 200) return { id: "grid", name: "AI Power Grid", usedFor: "Chat (fallback)", configured: true, status: "ok", detail: "Key valid — free streaming ready" };
+  if (http === 503) return { id: "grid", name: "AI Power Grid", usedFor: "Chat (fallback)", configured: true, status: "low", detail: "Key valid but no GPU workers online right now (503)" };
+  return { id: "grid", name: "AI Power Grid", usedFor: "Chat (fallback)", configured: true, status: "invalid", detail: `Key rejected (HTTP ${http})` };
+}
+
 async function checkResend(): Promise<ProviderStatus> {
   const configured = !!env.RESEND_API_KEY;
   if (!configured) return { id: "resend", name: "Resend", usedFor: "Verification emails", configured: false, status: "configured" };
@@ -258,6 +278,7 @@ export async function getProviderStatus(): Promise<ProviderStatus[]> {
     checkPixazo(),
     checkKimi(),
     checkTinyFish(),
+    checkGrid(),
     checkResend(),
   ]);
   return results.map((r) =>

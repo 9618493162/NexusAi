@@ -6,6 +6,7 @@ import { streamOpenRouterChat } from "./openrouter.service";
 import { streamMistralChat } from "./mistral.service";
 import { streamKimiChat } from "./kimi.service";
 import { streamNvidiaChat, NVIDIA_MODELS, NVIDIA_MODEL_NAMES } from "./nvidia.service";
+import { streamGridChat, GRID_MODELS } from "./grid.service";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -13,8 +14,10 @@ export interface ChatMessage {
 }
 
 const GROQ_MODEL_IDS: Set<string> = new Set(Object.values(GROQ_MODELS));
+const GRID_MODEL_IDS: Set<string> = new Set(Object.values(GRID_MODELS));
 
-export function detectProvider(model: string): "groq" | "gemini" | "openrouter" | "mistral" | "nvidia" | "kimi" {
+export function detectProvider(model: string): "groq" | "gemini" | "openrouter" | "mistral" | "nvidia" | "kimi" | "grid" {
+  if (GRID_MODEL_IDS.has(model)) return "grid";
   if (model.startsWith("gemini")) return "gemini";
   if (NVIDIA_MODEL_NAMES[model]) return "nvidia";
   if (model.startsWith("kimi")) return "kimi";
@@ -53,6 +56,11 @@ export async function* streamChat(
       }
     } else if (provider === "kimi") {
       for await (const chunk of streamKimiChat(messages, model)) {
+        fullContent += chunk;
+        yield chunk;
+      }
+    } else if (provider === "grid") {
+      for await (const chunk of streamGridChat(messages, model)) {
         fullContent += chunk;
         yield chunk;
       }
@@ -105,10 +113,9 @@ export async function getAvailableModels() {
     { id: GROQ_MODELS.QWEN_27B, name: "Qwen 3.6 27B (Groq)", provider: "groq", context: "128k" },
     { id: GROQ_MODELS.GPT_OSS_120B, name: "GPT-OSS 120B (Groq)", provider: "groq", context: "128k" },
     { id: GROQ_MODELS.COMPOUND_MINI, name: "Groq Compound Mini", provider: "groq", context: "128k" },
-    // OpenRouter — works with the configured key (limited credit).
-    { id: "openai/gpt-4o", name: "GPT-4o (OpenRouter)", provider: "openrouter", context: "128k" },
-    { id: "deepseek/deepseek-chat", name: "DeepSeek Chat (OpenRouter)", provider: "openrouter", context: "128k" },
     // Google Gemini — flash-tier models available to this account with working quota.
+    // (gemini-flash-latest resolves to the account's fastest flash tier; the
+    // concrete gemini-3.5-flash measures ~3x slower on this key.)
     { id: "gemini-flash-latest", name: "Gemini Flash (Google)", provider: "gemini", context: "1M" },
     { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash (Google)", provider: "gemini", context: "1M" },
     { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite (Google)", provider: "gemini", context: "1M" },
@@ -118,9 +125,6 @@ export async function getAvailableModels() {
     { id: "mistral-medium-latest", name: "Mistral Medium", provider: "mistral", context: "32k" },
     { id: "mistral-small-latest", name: "Mistral Small", provider: "mistral", context: "32k" },
     { id: "codestral-latest", name: "Codestral (code)", provider: "mistral", context: "256k" },
-    // Kimi (Moonshot AI) — OpenAI-compatible; account currently has no balance.
-    { id: "kimi-k2.6", name: "Kimi K2.6 (Moonshot)", provider: "kimi", context: "256k" },
-    { id: "kimi-k2.7-code", name: "Kimi K2.7 Code (Moonshot)", provider: "kimi", context: "256k" },
     // NVIDIA NIM — serverless models, OpenAI-compatible.
     ...Object.values(NVIDIA_MODELS).map((id) => ({
       id,
@@ -128,6 +132,10 @@ export async function getAvailableModels() {
       provider: "nvidia" as const,
       context: "128k",
     })),
+    // Deliberately NOT listed (can't reply today): Kimi (no balance, HTTP 429),
+    // OpenRouter (no credits, $0), AI Power Grid (key rejected, HTTP 401). They
+    // stay out of the picker until their accounts are funded/fixed. The
+    // providers page shows their live status.
   ];
 }
 

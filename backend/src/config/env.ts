@@ -35,6 +35,9 @@ const envSchema = z.object({
   // MagicSlides.app presentation generation (topic/text → real PPTX + PDF).
   // Server-side only, never sent to the frontend.
   MAGICSLIDES_API_KEY: z.string().optional(),
+  // AI Power Grid (aipowergrid.io) — free OpenAI-compatible chat streaming.
+  // Decentralized inference; models served depend on connected workers.
+  GRID_API_KEY: z.string().optional(),
 
   FRONTEND_URL: z.string().min(1, "FRONTEND_URL is required"),
 
