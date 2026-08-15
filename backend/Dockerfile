@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 COPY package*.json ./
@@ -9,7 +9,10 @@ COPY . .
 RUN npm run build
 RUN npx prisma generate
 
-FROM node:20-alpine
+FROM node:20-slim
+
+# Prisma's schema/query engines need OpenSSL for libssl detection
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 ENV NODE_ENV=production
