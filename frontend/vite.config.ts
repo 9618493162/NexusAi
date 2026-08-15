@@ -4,6 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  // Root build by default; set VITE_BASE (e.g. /NexusAi/) for subpath deploys
+  // like GitHub Pages. import.meta.env.BASE_URL reflects this value.
+  base: process.env.VITE_BASE || "/",
   test: {
     environment: 'jsdom',
     globals: true,

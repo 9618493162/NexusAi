@@ -41,6 +41,11 @@ const envSchema = z.object({
 
   FRONTEND_URL: z.string().min(1, "FRONTEND_URL is required"),
 
+  // Additional CORS origins (comma-separated) beyond FRONTEND_URL — e.g. the
+  // GitHub Pages mirror of the frontend. FRONTEND_URL itself stays single-valued
+  // because email links and OAuth redirects build URLs from it.
+  CORS_ORIGINS: z.string().optional(),
+
   // Supabase Auth (optional — when set, login/register go through Supabase)
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),

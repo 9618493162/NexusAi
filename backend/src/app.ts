@@ -44,7 +44,20 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+const allowedOrigins = [
+  env.FRONTEND_URL,
+  ...(env.CORS_ORIGINS ? env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean) : []),
+];
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Allow same-origin / non-browser (curl, server-to-server) requests.
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+  })
+);
 app.use(compression());
 app.use(morgan("combined"));
 app.use(globalRateLimit);
