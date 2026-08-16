@@ -6,15 +6,17 @@ import { logger } from "../config/logger";
 // server-side only.
 export async function* streamKimiChat(
   messages: Array<{ role: string; content: string }>,
-  model: string = "kimi-k2.6"
+  model: string = "kimi-k2.6",
+  apiKey?: string
 ): AsyncGenerator<string, void, unknown> {
-  if (!env.KIMI_API_KEY) throw new Error("Kimi is not configured (KIMI_API_KEY missing)");
+  const key = apiKey ?? env.KIMI_API_KEY;
+  if (!key) throw new Error("Kimi is not configured (KIMI_API_KEY missing)");
   try {
     const response = await fetch("https://api.moonshot.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.KIMI_API_KEY}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model,

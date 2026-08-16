@@ -3,14 +3,16 @@ import { logger } from "../config/logger";
 
 export async function* streamOpenRouterChat(
   messages: Array<{ role: string; content: string }>,
-  model: string = "openai/gpt-4o"
+  model: string = "openai/gpt-4o",
+  apiKey?: string
 ): AsyncGenerator<string, void, unknown> {
   try {
+    const key = apiKey ?? env.OPENROUTER_API_KEY;
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${key}`,
         "HTTP-Referer": env.FRONTEND_URL,
         "X-Title": "NexusAI",
       },

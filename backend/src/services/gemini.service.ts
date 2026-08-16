@@ -3,11 +3,15 @@ import { logger } from "../config/logger";
 
 export async function* streamGeminiChat(
   messages: Array<{ role: string; content: string }>,
-  model: string = "gemini-flash-latest"
+  model: string = "gemini-flash-latest",
+  apiKey?: string
 ): AsyncGenerator<string, void, unknown> {
   try {
+    // Prefer the caller's key (user-owned BYOK key when present), else the
+    // server env key.
+    const key = apiKey ?? env.GEMINI_API_KEY;
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key || "")}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

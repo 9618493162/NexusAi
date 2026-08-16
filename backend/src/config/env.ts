@@ -10,6 +10,9 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional(),
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
+  // Key used to encrypt user-owned provider API keys (BYOK). Falls back to
+  // JWT_SECRET when unset — set a dedicated value in production.
+  ENCRYPTION_KEY: z.string().optional(),
 
   // AI Providers
   GROQ_API_KEY: z.string().min(1, "GROQ_API_KEY is required"),

@@ -235,9 +235,9 @@ function inferProvider(id: string, name: string): string {
  * the chat API), CODE only for code-specialized ids, and the generation
  * category for image/video models.
  */
-export async function getModelCatalog(): Promise<{ models: { chat: CatalogModel[]; image: CatalogModel[]; video: CatalogModel[] } }> {
+export async function getModelCatalog(userId?: string): Promise<{ models: { chat: CatalogModel[]; image: CatalogModel[]; video: CatalogModel[] } }> {
   const [chatModels, imageModels, videoModels] = await Promise.all([
-    getAvailableModels(),
+    getAvailableModels(userId),
     getImageModels(),
     getVideoModels(),
   ]);

@@ -103,9 +103,10 @@ export async function streamChat(req: AuthenticatedRequest, res: Response): Prom
   }
 }
 
-export async function getModels(req: Request, res: Response): Promise<void> {
+export async function getModels(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const models = await chatService.getAvailableModels();
+    // Pass the caller id so user-owned BYOK keys unlock their providers.
+    const models = await chatService.getAvailableModels(req.user?.userId);
     res.json(models);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

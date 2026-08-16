@@ -31,14 +31,16 @@ const MAX_TOKENS_BY_MODEL: Record<string, number> = {
 
 export async function* streamNvidiaChat(
   messages: Array<{ role: string; content: string }>,
-  model: string = NVIDIA_MODELS.NEMOTRON_SUPER_49B
+  model: string = NVIDIA_MODELS.NEMOTRON_SUPER_49B,
+  apiKey?: string
 ): AsyncGenerator<string, void, unknown> {
   try {
+    const key = apiKey ?? env.NVIDIA_NIM_API_KEY;
     const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.NVIDIA_NIM_API_KEY}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model,

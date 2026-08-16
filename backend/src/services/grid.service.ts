@@ -20,10 +20,6 @@ export const GRID_MODELS = {
 
 const BASE_URL = "https://api.aipowergrid.io/v1";
 
-function gridConfigured(): boolean {
-  return !!env.GRID_API_KEY;
-}
-
 function resolveApiModel(model: string): string {
   if (model.startsWith("grid-")) return model.slice("grid-".length);
   return model;
@@ -31,16 +27,18 @@ function resolveApiModel(model: string): string {
 
 export async function* streamGridChat(
   messages: Array<{ role: string; content: string }>,
-  model: string = GRID_MODELS.GPT_OSS_120B
+  model: string = GRID_MODELS.GPT_OSS_120B,
+  apiKey?: string
 ): AsyncGenerator<string, void, unknown> {
-  if (!gridConfigured()) throw new Error("Grid is not configured (GRID_API_KEY missing)");
+  const key = apiKey ?? env.GRID_API_KEY;
+  if (!key) throw new Error("Grid is not configured (GRID_API_KEY missing)");
 
   try {
     const response = await fetch(`${BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.GRID_API_KEY}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model: resolveApiModel(model),

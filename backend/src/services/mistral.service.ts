@@ -5,15 +5,17 @@ import { logger } from "../config/logger";
 // SSE. The Mistral API key lives server-side only.
 export async function* streamMistralChat(
   messages: Array<{ role: string; content: string }>,
-  model: string = "mistral-large-latest"
+  model: string = "mistral-large-latest",
+  apiKey?: string
 ): AsyncGenerator<string, void, unknown> {
-  if (!env.MISTRAL_API_KEY) throw new Error("Mistral is not configured (MISTRAL_API_KEY missing)");
+  const key = apiKey ?? env.MISTRAL_API_KEY;
+  if (!key) throw new Error("Mistral is not configured (MISTRAL_API_KEY missing)");
   try {
     const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model,
