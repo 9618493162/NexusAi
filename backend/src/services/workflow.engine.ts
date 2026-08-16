@@ -71,7 +71,7 @@ export const PALETTE_ORDER = ["text", "file", "audio", "ai", "analyze", "summari
 
 async function chatText(messages: Array<{ role: "user" | "assistant" | "system"; content: string }>, model: string, userId: string): Promise<string> {
   let out = "";
-  for await (const chunk of streamChat(messages, model, userId)) out += chunk;
+  for await (const chunk of streamChat(messages, model, userId, "workflows")) out += chunk;
   return out;
 }
 

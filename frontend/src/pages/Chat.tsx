@@ -505,8 +505,11 @@ export function Chat() {
       // and a non-English language is selected (the model replies in that
       // language, then we speak the result).
       const langName = languageName(languages, speakLang);
-      // Auto model: pick the best model for this task (or from the message).
-      const resolvedModel = model === "auto" ? recommendModel(message, task) : model;
+      // Auto model: quick-action tasks keep their recommended model; a plain
+      // "Auto" is sent through to the backend, which routes it via the user's
+      // default provider / per-feature preference (BYOK) — the provider is
+      // never picked in the browser.
+      const resolvedModel = model === "auto" ? (task ? recommendModel(message, task) : "auto") : model;
       // Translation follows the selected language (the speak toggle only
       // controls whether the reply is spoken aloud).
       const response = await chatService.streamChat(
@@ -707,7 +710,7 @@ export function Chat() {
     }
   };
 
-  const autoModel = model === "auto" ? recommendModel(input || " ", task) : "";
+  const autoModel = model === "auto" ? (task ? recommendModel(input || " ", task) : "auto") : "";
 
   return (
     <div className="flex h-full flex-col">
@@ -915,10 +918,11 @@ export function Chat() {
                 setModel(v);
                 if (v !== "auto") rememberTaskModel(task || "_default", v);
               }}
-              options={[
-                { value: "auto", label: "Auto — best for task" },
-                ...models.map((m) => ({ value: m.id, label: m.name })),
-              ]}
+              options={
+                models.length > 0
+                  ? models.map((m) => ({ value: m.id, label: m.name }))
+                  : [{ value: "auto", label: "Auto — best for task" }]
+              }
               searchable
               ariaLabel="Model"
               leadingIcon={<Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />}
@@ -1015,7 +1019,11 @@ export function Chat() {
 
             {model === "auto" && (
               <span className="hidden items-center gap-1 text-xs text-muted-foreground md:inline-flex">
-                Auto → <span className="font-medium text-primary">{autoModel}</span> for this task
+                {task ? (
+                  <>Auto → <span className="font-medium text-primary">{autoModel}</span> for this task</>
+                ) : (
+                  <>Auto → <span className="font-medium text-primary">your default provider</span></>
+                )}
               </span>
             )}
           </div>

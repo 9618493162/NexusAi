@@ -3,14 +3,14 @@ import {
   User, Sun, Moon, LogOut, Shield, Mail, Server, CheckCircle2, XCircle, AlertTriangle,
   RefreshCw, Palette, Cpu, Check, Info, Database, BarChart3, KeyRound, CalendarDays,
   Link2, ArrowRight, Loader2, BadgeCheck, Clock, Sparkles, WifiOff, Camera, Trash2,
-  Monitor, Smartphone, Brain,
+  Monitor, Smartphone, Brain, Plus, Star, Plug, SlidersHorizontal,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth.store";
 import { useThemeStore, type ThemeMode } from "@/store/theme.store";
 import { cn } from "@/utils/cn";
-import { providersService, ProviderStatus } from "@/services/providers.service";
+import { providersService, ProviderStatus, ByokKeysResponse, ByokProvider } from "@/services/providers.service";
 import { voiceService } from "@/services/voice.service";
 import { usageService } from "@/services/usage.service";
 import { authService } from "@/services/auth.service";
@@ -27,6 +27,17 @@ import { AvatarImage } from "@/components/ui/avatar-image";
 // ---------------------------------------------------------------------------
 
 type SectionKey = "account" | "appearance" | "ai" | "integrations" | "security" | "data" | "about";
+
+// Features that can be pinned to a specific provider for "Auto" routing.
+const BYOK_FEATURES: Array<{ id: string; label: string }> = [
+  { id: "chat", label: "Chat" },
+  { id: "file-analysis", label: "File analysis" },
+  { id: "research", label: "Research" },
+  { id: "data-analysis", label: "Data analysis" },
+  { id: "documents", label: "Documents & reports" },
+  { id: "meetings", label: "Meeting summaries" },
+  { id: "agents", label: "Agents" },
+];
 
 const SECTIONS: Array<{ key: SectionKey; label: string; icon: React.ElementType }> = [
   { key: "account", label: "Account", icon: User },
@@ -126,6 +137,15 @@ export function Settings() {
   const [active, setActive] = useState<SectionKey>("account");
   const [providers, setProviders] = useState<ProviderStatus[] | null>(null);
   const [checking, setChecking] = useState(false);
+
+  // Bring-Your-Own-Key — user-owned provider keys (encrypted server-side)
+  const [byok, setByok] = useState<ByokKeysResponse | null>(null);
+  const [byokModal, setByokModal] = useState<ByokProvider | null>(null);
+  const [modalKey, setModalKey] = useState("");
+  const [modalLabel, setModalLabel] = useState("");
+  const [modalTesting, setModalTesting] = useState(false);
+  const [modalMsg, setModalMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [removingProvider, setRemovingProvider] = useState<ByokProvider | null>(null);
   const [languages, setLanguages] = useState<Array<{ code: string; name: string }>>([]);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [chatModelOptions, setChatModelOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -265,6 +285,83 @@ export function Settings() {
       setChecking(false);
     }
   }, []);
+
+  const loadByok = useCallback(async () => {
+    try {
+      const { data } = await providersService.getKeys();
+      setByok(data);
+    } catch {
+      setByok(null);
+    }
+  }, []);
+
+  useEffect(() => { loadByok(); }, [loadByok]);
+
+  const openByokModal = (p: ByokProvider) => {
+    setByokModal(p);
+    setModalKey("");
+    setModalLabel("");
+    setModalMsg(null);
+  };
+
+  const runKeyTest = async () => {
+    if (!byokModal || !modalKey.trim()) {
+      setModalMsg({ ok: false, text: "Paste an API key first." });
+      return;
+    }
+    setModalTesting(true);
+    setModalMsg(null);
+    try {
+      const { data } = await providersService.testKey(byokModal, modalKey.trim());
+      setModalMsg({
+        ok: data.status === "connected" || data.status === "no_credits",
+        text: data.status === "connected" ? `Connected — ${data.detail || "key valid"}` : data.detail || data.status,
+      });
+    } catch (err: any) {
+      setModalMsg({ ok: false, text: err?.response?.data?.error || "Test failed — try again." });
+    } finally {
+      setModalTesting(false);
+    }
+  };
+
+  const saveByokKey = async () => {
+    if (!byokModal) return;
+    setModalMsg(null);
+    try {
+      await providersService.addKey(byokModal, modalKey.trim(), modalLabel.trim() || undefined);
+      setByokModal(null);
+      loadByok();
+    } catch (err: any) {
+      setModalMsg({ ok: false, text: err?.response?.data?.error || "Could not save the key — try again." });
+    }
+  };
+
+  const removeByokKey = async (p: ByokProvider, name: string) => {
+    if (!window.confirm(`Remove your ${name} API key? This may disable features using this provider.`)) return;
+    setRemovingProvider(p);
+    try {
+      await providersService.removeKey(p);
+      loadByok();
+    } catch {
+      // stay silent — the row just doesn't reload
+    } finally {
+      setRemovingProvider(null);
+    }
+  };
+
+  const setDefaultByok = async (p: ByokProvider) => {
+    await providersService.setDefaultProvider(p);
+    loadByok();
+  };
+
+  const setFeatureByok = async (feature: string, provider: ByokProvider | null) => {
+    try {
+      await providersService.setFeature(feature, provider);
+      loadByok();
+    } catch {
+      // the select just doesn't update — next load reflects the server truth
+    }
+  };
 
   // Send-test-email (real end-to-end check of the email provider)
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
@@ -675,7 +772,7 @@ export function Settings() {
           {active === "integrations" && (
             <Section icon={Server} title="Integrations" description="Live status of every AI provider powering NexusAI">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">Keys are stored server-side in backend/.env — never in your browser.</p>
+                <p className="text-xs text-muted-foreground">Server keys live in backend/.env — your own keys are encrypted at rest and never leave the server.</p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={sendTestEmail}
@@ -695,6 +792,182 @@ export function Settings() {
                   </button>
                 </div>
               </div>
+
+              {/* Bring-Your-Own-Key — user-owned provider keys (encrypted server-side) */}
+              <div className="mb-6">
+                <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold tracking-tight">
+                  <Plug className="h-4 w-4 text-primary" /> Your API keys
+                  <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Bring your own</span>
+                </h3>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Connect your own provider keys — they're used only for your requests and billed to your provider. Keys are AES-256 encrypted on the server; only the last 4 characters are ever shown to you.
+                </p>
+                {byok === null ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">Loading your keys…</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {byok.keys.map((k) => (
+                      <div key={k.provider} className="rounded-xl border border-border/60 bg-muted/30 p-4 transition-colors hover:bg-muted/60">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{k.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{k.usedFor}</p>
+                          </div>
+                          <button
+                            onClick={() => setDefaultByok(k.provider)}
+                            title={byok.defaultProvider === k.provider ? "Default chat provider" : "Set as default chat provider"}
+                            aria-label={byok.defaultProvider === k.provider ? "Default provider" : "Set as default provider"}
+                            className={cn(
+                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors",
+                              byok.defaultProvider === k.provider
+                                ? "border-primary/40 bg-primary/12 text-primary"
+                                : "border-border bg-card text-muted-foreground hover:text-primary"
+                            )}
+                          >
+                            <Star className={cn("h-3.5 w-3.5", byok.defaultProvider === k.provider && "fill-primary")} />
+                          </button>
+                        </div>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          {k.hasUserKey ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/12 px-2.5 py-0.5 text-[11px] font-medium text-success">
+                              <CheckCircle2 className="h-3 w-3" /> Your key ••••{k.keyHint}
+                            </span>
+                          ) : k.serverConfigured ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              <Server className="h-3 w-3" /> Server key
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              Not configured
+                            </span>
+                          )}
+                          {byok.defaultProvider === k.provider && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        {k.label && <p className="mt-1.5 text-[11px] text-muted-foreground">{k.label}</p>}
+                        {k.hasUserKey && (k.usageCount != null || k.totalTokens != null || k.lastUsedAt) && (
+                          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                            {k.usageCount != null ? `${k.usageCount} request${k.usageCount === 1 ? "" : "s"}` : ""}
+                            {k.usageCount != null && k.totalTokens != null ? " · " : ""}
+                            {k.totalTokens != null ? `${k.totalTokens.toLocaleString()} tokens` : ""}
+                            {k.lastUsedAt ? ` · last used ${new Date(k.lastUsedAt).toLocaleString()}` : ""}
+                          </p>
+                        )}
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => openByokModal(k.provider)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+                          >
+                            <Plus className="h-3 w-3" /> {k.hasUserKey ? "Replace key" : "Add API key"}
+                          </button>
+                          <button
+                            onClick={() => { setByokModal(k.provider); setModalKey(""); setModalLabel(""); setModalMsg(null); }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+                          >
+                            <RefreshCw className="h-3 w-3" /> Test
+                          </button>
+                          {k.hasUserKey && (
+                            <button
+                              onClick={() => removeByokKey(k.provider, k.name)}
+                              disabled={removingProvider === k.provider}
+                              className="inline-flex items-center gap-1 rounded-lg border border-destructive/25 bg-destructive/5 px-2.5 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
+                            >
+                              {removingProvider === k.provider ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-5 border-t border-border pt-4">
+                  <h4 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <SlidersHorizontal className="h-3.5 w-3.5" /> Default provider per feature
+                  </h4>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    When a feature runs on <span className="font-medium text-foreground">Auto</span>, it uses the provider you pick here — otherwise it falls back to your default chat provider (the ⭐ on the cards above).
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {BYOK_FEATURES.map((f) => (
+                      <div key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3.5 py-2.5">
+                        <span className="text-sm font-medium">{f.label}</span>
+                        <Select
+                          value={byok?.featureProviders?.[f.id] ?? ""}
+                          onChange={(v) => setFeatureByok(f.id, v === "" ? null : (v as ByokProvider))}
+                          options={[
+                            { value: "", label: "Auto — default provider" },
+                            ...(byok?.keys ?? [])
+                              .filter((k) => k.serverConfigured || k.hasUserKey)
+                              .map((k) => ({ value: k.provider, label: k.name })),
+                          ]}
+                          ariaLabel={`Provider for ${f.label}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Your provider may charge you according to its own pricing. Keys are validated with a real request before they're saved, and the plaintext never touches the browser.
+                </p>
+              </div>
+
+              {/* Add / replace key modal */}
+              {byokModal && (() => {
+                const meta = byok?.keys.find((k) => k.provider === byokModal);
+                return (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setByokModal(null)}>
+                    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-popover">
+                      <h3 className="text-base font-semibold tracking-tight">Connect {meta?.name || byokModal}</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Stored encrypted on the server — used only for your requests.</p>
+                      <div className="mt-4 space-y-3">
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">API key</label>
+                          <input
+                            type="password"
+                            value={modalKey}
+                            onChange={(e) => setModalKey(e.target.value)}
+                            placeholder={`Paste your ${meta?.name || "provider"} key`}
+                            autoComplete="off"
+                            className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Label (optional)</label>
+                          <input
+                            value={modalLabel}
+                            onChange={(e) => setModalLabel(e.target.value)}
+                            placeholder="e.g. Work key"
+                            className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+                          />
+                        </div>
+                        <button
+                          onClick={runKeyTest}
+                          disabled={modalTesting}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-60"
+                        >
+                          {modalTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                          Test connection
+                        </button>
+                        {modalMsg && (
+                          <p className={cn("flex items-center gap-1.5 text-xs font-medium", modalMsg.ok ? "text-success" : "text-destructive")}>
+                            {modalMsg.ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}
+                            {modalMsg.text}
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-5 flex items-center justify-end gap-2">
+                        <Button variant="outline" onClick={() => setByokModal(null)}>Cancel</Button>
+                        <Button onClick={saveByokKey} disabled={!modalKey.trim()}>
+                          <KeyRound className="h-4 w-4 mr-2" /> Save key
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               {testEmailMsg && (
                 <p className={cn("mb-3 flex items-center gap-1.5 text-xs font-medium", testEmailMsg.ok ? "text-success" : "text-destructive")}>
                   {testEmailMsg.ok ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <XCircle className="h-3.5 w-3.5 shrink-0" />}

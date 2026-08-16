@@ -118,7 +118,7 @@ export async function summarizeMeeting(req: AuthenticatedRequest, res: Response)
     res.setHeader("Connection", "keep-alive");
 
     let full = "";
-    for await (const chunk of chatService.streamChat(messages, undefined, req.user!.userId)) {
+    for await (const chunk of chatService.streamChat(messages, undefined, req.user!.userId, "meetings")) {
       full += chunk;
       res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
     }

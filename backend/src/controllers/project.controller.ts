@@ -380,7 +380,7 @@ export async function askProject(req: AuthenticatedRequest, res: Response): Prom
     res.setHeader("Connection", "keep-alive");
 
     let full = "";
-    for await (const chunk of chatService.streamChat(messages, model, req.user!.userId)) {
+    for await (const chunk of chatService.streamChat(messages, model, req.user!.userId, "projects")) {
       full += chunk;
       res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
     }

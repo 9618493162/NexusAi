@@ -22,9 +22,15 @@ model User {
   dictateLang   String?
   // Translation target for dictated speech ("Dictate to") — synced across devices.
   dictateTo     String?
+  // User-selected default chat provider (BYOK) — "groq" | "gemini" | ... | null
+  defaultChatProvider String?
+  // Per-feature provider preferences (BYOK): feature id -> provider. "Auto"
+  // requests route through the feature's preferred provider when set.
+  featureProviders Json?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  providerKeys  ProviderKey[]
   conversations Conversation[]
   messages      Message[]
   files         File[]
@@ -205,6 +211,33 @@ model ProjectActivity {
 }
 
 // Per-user badge colors for spoken-reply languages, synced across devices.
+// Bring-Your-Own-Key: a user's own provider API key, encrypted at rest with
+// AES-256-GCM. The plaintext key never leaves the backend, never appears in
+// API responses (only keyHint, the last 4 chars, is exposed for recognition),
+// and every operation is scoped to the authenticated user.
+model ProviderKey {
+  id           String   @id @default(uuid())
+  userId       String
+  // groq | gemini | openrouter | mistral | kimi | nvidia | grid
+  provider     String
+  encryptedKey String   @db.Text // "iv.tag.ciphertext" base64url — AES-256-GCM
+  keyHint      String // last 4 chars of the plaintext key, for masked display
+  label        String?
+  status       String   @default("active") // active | disabled
+  lastUsedAt   DateTime?
+  // Real usage of THIS user key — incremented by the backend on actual calls.
+  usageCount   Int      @default(0) // provider requests that used this key
+  totalTokens  Int      @default(0) // output tokens streamed through this key
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("provider_keys")
+}
+
 model LanguageColor {
   userId   String
   language String

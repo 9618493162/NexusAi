@@ -50,7 +50,13 @@ export function UniversalCommandCenter() {
       .getModels()
       .then(({ data }) => {
         if (Array.isArray(data) && data.length) {
-          setModels([{ value: "auto", label: "Auto — best for task" }, ...data.map((m: { id: string; name: string }) => ({ value: m.id, label: m.name }))]);
+          // The backend model list now includes its own "auto" entry (labeled
+          // with the user's default provider) — keep the hardcoded one and
+          // drop the duplicate.
+          setModels([
+            { value: "auto", label: "Auto — best for task" },
+            ...data.filter((m: { id: string }) => m.id !== "auto").map((m: { id: string; name: string }) => ({ value: m.id, label: m.name })),
+          ]);
         }
       })
       .catch(() => { /* Auto only */ });

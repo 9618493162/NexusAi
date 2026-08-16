@@ -44,7 +44,7 @@ async function* streamWithFallback(
   let lastError: unknown = null;
   for (const model of candidates) {
     try {
-      yield* streamChat(messages, model, userId);
+      yield* streamChat(messages, model, userId, "agents");
       return;
     } catch (error) {
       lastError = error;
