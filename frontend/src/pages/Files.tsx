@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { FileText, Upload, Trash2, File as FileIcon, Loader2, FileCode2, ChevronDown, FileSearch, Sparkles, Search, ArrowDownUp, AlertCircle } from "lucide-react";
 import { NexusCore } from "@/components/ui/nexus-core";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { fileService, fileHasText, FILE_SIZE_LIMIT } from "@/services/file.service";
 import { FileItem } from "@/types";
 import { cn } from "@/utils/cn";
@@ -102,6 +104,10 @@ export function Files() {
   const highlightRef = useRef<number | null>(null);
   const visibleRef = useRef<FileItem[]>([]);
   const expandedRef = useRef<string | null>(null);
+  // Desktop keeps the inline analysis expansion; on phones the same real panel
+  // slides in as a drawer (single mount — no duplicate analysis fetches).
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const expandedFile = files.find((f) => f.id === expanded);
 
   const loadFiles = async () => {
     try {
@@ -489,7 +495,7 @@ export function Files() {
                       <Trash2 className="h-4 w-4" strokeWidth={1.8} />
                     </button>
                   </div>
-                  {isOpen && (
+                  {isOpen && isDesktop && (
                     <FileAnalysisPanel
                       file={file}
                       onAnalyzingChange={(active) => setAnalyzingId(active ? file.id : null)}
@@ -501,6 +507,24 @@ export function Files() {
           </AnimatePresence>
         )}
       </div>
+
+      {/* Mobile — the analysis panel slides in as a drawer instead of pushing
+          the list down; desktop keeps the inline expansion above. */}
+      {expanded && !isDesktop && expandedFile && (
+        <MobileDrawer
+          open
+          onClose={() => setExpanded(null)}
+          title={expandedFile.originalName}
+          side="right"
+          panelClassName="w-full max-w-2xl"
+          icon={<FileText className="h-4 w-4" />}
+        >
+          <FileAnalysisPanel
+            file={expandedFile}
+            onAnalyzingChange={(active) => setAnalyzingId(active ? expandedFile.id : null)}
+          />
+        </MobileDrawer>
+      )}
     </div>
   );
 }

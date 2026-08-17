@@ -6,6 +6,7 @@ import {
   ArrowRight, Sparkles, AlertTriangle, Building2, Wallet, RefreshCw,
 } from "lucide-react";
 import { NexusCore } from "@/components/ui/nexus-core";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { SpatialEnvironment } from "@/components/ui/spatial-environment";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/utils/cn";
@@ -41,9 +42,15 @@ function fmtCap(cap?: number | null): string {
   return `$${cap}`;
 }
 
-function NewsCard({ item }: { item: MarketNewsItem }) {
+function NewsCard({ item, onOpen }: { item: MarketNewsItem; onOpen?: () => void }) {
   return (
-    <div className="card-surface card-hover group flex flex-col rounded-xl p-4">
+    <div
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={onOpen ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } } : undefined}
+      className={cn("card-surface card-hover group flex flex-col rounded-xl p-4", onOpen && "cursor-pointer lg:cursor-default")}
+    >
       <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span>{item.publisher || "News"}</span>
         {item.publishedUtc && <span>· {fmtDate(item.publishedUtc)}</span>}
@@ -69,6 +76,7 @@ function NewsCard({ item }: { item: MarketNewsItem }) {
           href={item.articleUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
         >
           Open article <ExternalLink className="h-3 w-3" />
@@ -90,6 +98,8 @@ export function Markets() {
   const [researchSummary, setResearchSummary] = useState<string>("");
   const abortRef = useRef<{ abort: () => void } | null>(null);
   const reduced = useReducedMotion();
+  // Mobile slide-in drawer showing a tapped article's full detail.
+  const [newsItem, setNewsItem] = useState<MarketNewsItem | null>(null);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -377,7 +387,7 @@ export function Markets() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {news.map((n, i) => (
-                    <NewsCard key={i} item={n} />
+                    <NewsCard key={i} item={n} onOpen={() => setNewsItem(n)} />
                   ))}
                 </div>
               )}
@@ -395,6 +405,54 @@ export function Markets() {
           />
         )}
       </div>
+
+      {/* Mobile — tapped article opens in a slide-in drawer (desktop keeps the
+          grid + hover-revealed "Open article" links). */}
+      <MobileDrawer
+        open={!!newsItem}
+        onClose={() => setNewsItem(null)}
+        title="Article"
+        side="right"
+        panelClassName="w-full max-w-md"
+        icon={<Newspaper className="h-4 w-4" />}
+      >
+        {newsItem && (
+          <div className="p-2">
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span>{newsItem.publisher || "News"}</span>
+              {newsItem.publishedUtc && <span>· {fmtDate(newsItem.publishedUtc)}</span>}
+              {newsItem.sentiment && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                    newsItem.sentiment === "positive"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : newsItem.sentiment === "negative"
+                        ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                        : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {newsItem.sentiment}
+                </span>
+              )}
+            </p>
+            <h3 className="mt-2 text-base font-semibold leading-snug">{newsItem.title}</h3>
+            {newsItem.summary && (
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{newsItem.summary}</p>
+            )}
+            {newsItem.articleUrl && (
+              <a
+                href={newsItem.articleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3.5 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+              >
+                Open article <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
+        )}
+      </MobileDrawer>
     </div>
   );
 }

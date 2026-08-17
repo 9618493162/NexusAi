@@ -16,6 +16,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { NexusCore } from "@/components/ui/nexus-core";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { SpatialEnvironment } from "@/components/ui/spatial-environment";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -155,6 +156,9 @@ export function Research() {
   const [starting, setStarting] = useState(false);
   const abortRef = useRef<{ abort: () => void } | null>(null);
   const reduced = useReducedMotion();
+  // Mobile slide-in drawer for the history rail (the desktop rail stays beside
+  // the results; on phones the same real list opens from a trigger button).
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -177,6 +181,7 @@ export function Research() {
       setError("");
       setRunning(false);
       abortRef.current?.abort();
+      setHistoryOpen(false);
       try {
         const s = await getResearch(id);
         setActive(s);
@@ -339,6 +344,56 @@ export function Research() {
 
   const stageLabel = STAGE_LABEL[stage] || (stage ? `Researching…` : "");
 
+  // The history list — rendered in the desktop rail AND the mobile drawer from
+  // the same real session data (no duplication of state).
+  const renderHistory = () =>
+    loading ? (
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    ) : sessions.length === 0 ? (
+      <EmptyState
+        icon={Compass}
+        title="No research yet"
+        description="Run your first query above — results are saved here."
+        className="py-6"
+      />
+    ) : (
+      <div className="space-y-2">
+        {sessions.map((s) => (
+          <div
+            key={s.id}
+            className={cn(
+              "card-surface card-hover group flex items-center gap-2 rounded-xl p-3 text-left",
+              active?.id === s.id && "ring-1 ring-primary/50"
+            )}
+          >
+            <button onClick={() => void openSession(s.id)} className="min-w-0 flex-1">
+              <p className="line-clamp-2 text-sm font-medium">{s.query}</p>
+              <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>{fmtDate(s.createdAt)}</span>
+                <span className="uppercase">{s.mode}</span>
+                {s.status === "completed" && (
+                  <span className="inline-flex items-center gap-1 text-emerald-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {s._count?.sources ?? 0} sources
+                  </span>
+                )}
+                {s.status === "failed" && <span className="text-red-500">failed</span>}
+              </p>
+            </button>
+            <button
+              onClick={() => void remove(s.id)}
+              className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
+              aria-label={`Delete ${s.query}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       <SpatialEnvironment />
@@ -440,61 +495,30 @@ export function Research() {
         )}
 
         <div className="grid gap-6 lg:grid-cols-4">
-          {/* History */}
-          <div className="lg:col-span-1">
+          {/* History — desktop rail */}
+          <div className="hidden lg:block">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               <BookOpen className="h-4 w-4" /> Research history
             </h2>
-            {loading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : sessions.length === 0 ? (
-              <EmptyState
-                icon={Compass}
-                title="No research yet"
-                description="Run your first query above — results are saved here."
-                className="py-6"
-              />
-            ) : (
-              <div className="space-y-2">
-                {sessions.map((s) => (
-                  <div
-                    key={s.id}
-                    className={cn(
-                      "card-surface card-hover group flex items-center gap-2 rounded-xl p-3 text-left",
-                      active?.id === s.id && "ring-1 ring-primary/50"
-                    )}
-                  >
-                    <button onClick={() => void openSession(s.id)} className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-medium">{s.query}</p>
-                      <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>{fmtDate(s.createdAt)}</span>
-                        <span className="uppercase">{s.mode}</span>
-                        {s.status === "completed" && (
-                          <span className="inline-flex items-center gap-1 text-emerald-500">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {s._count?.sources ?? 0} sources
-                          </span>
-                        )}
-                        {s.status === "failed" && <span className="text-red-500">failed</span>}
-                      </p>
-                    </button>
-                    <button
-                      onClick={() => void remove(s.id)}
-                      className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
-                      aria-label={`Delete ${s.query}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            {renderHistory()}
           </div>
 
           {/* Results */}
           <div className="space-y-6 lg:col-span-3">
+            {/* Mobile trigger — opens the same history list as a drawer */}
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="surface-glow flex w-full items-center gap-2 rounded-xl border border-border bg-card/70 px-3.5 py-2.5 text-sm font-medium text-foreground backdrop-blur-sm transition-colors lg:hidden"
+            >
+              <BookOpen className="h-4 w-4 text-primary" />
+              Research history
+              {sessions.length > 0 && (
+                <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                  {sessions.length}
+                </span>
+              )}
+            </button>
             {!active && !running && (
               <EmptyState
                 icon={Sparkles}
@@ -595,6 +619,16 @@ export function Research() {
           </div>
         </div>
       </div>
+
+      {/* Mobile drawer — the same real history list, slide-in on phones */}
+      <MobileDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        title="Research history"
+        icon={<BookOpen className="h-4 w-4" />}
+      >
+        {renderHistory()}
+      </MobileDrawer>
     </div>
   );
 }
