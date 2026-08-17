@@ -373,7 +373,7 @@ export function Files() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search files…"
               aria-label="Search files"
-              className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50"
+              className="surface-glow h-10 w-full rounded-xl border border-border bg-card/80 pl-9 pr-3 text-sm outline-none backdrop-blur-sm transition-colors placeholder:text-muted-foreground focus:border-primary/50"
             />
           </div>
           <div className="relative">
@@ -382,7 +382,7 @@ export function Files() {
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               aria-label="Sort files"
-              className="h-10 appearance-none rounded-xl border border-border bg-card pl-8 pr-7 text-sm outline-none transition-colors focus:border-primary/50"
+              className="surface-glow h-10 appearance-none rounded-xl border border-border bg-card/80 pl-8 pr-7 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/50"
             >
               <option value="newest">Newest</option>
               <option value="oldest">Oldest</option>
@@ -398,7 +398,7 @@ export function Files() {
               onClick={() => setCategory(c.id)}
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                category === c.id ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                category === c.id ? "border-primary/45 bg-primary/12 text-primary shadow-sm" : "border-border bg-card/70 text-muted-foreground backdrop-blur-sm hover:border-primary/30 hover:text-foreground"
               )}
             >
               {c.label}
@@ -407,9 +407,10 @@ export function Files() {
         </div>
       </div>
 
-      {/* File list */}
-      <div className="mt-6 space-y-2.5">
-        <div className="flex items-center justify-between gap-3">
+      {/* File list — ambient depth behind the rows */}
+      <div className="relative mt-6 space-y-2.5">
+        <div aria-hidden className="pointer-events-none absolute -inset-x-8 -top-8 h-40 bg-[radial-gradient(50%_100%_at_50%_0%,hsl(var(--primary)/0.07),transparent)]" />
+        <div className="relative z-10 flex items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
             <Sparkles className="h-4 w-4 text-primary" />
             Your files {files.length > 0 && <span className="font-normal text-muted-foreground">({visibleFiles.length})</span>}
@@ -458,7 +459,7 @@ export function Files() {
                   transition={{ delay: index * 0.03 }}
                   aria-current={index === highlight ? "true" : undefined}
                   className={cn(
-                    "overflow-hidden rounded-xl border bg-card shadow-card transition-all duration-200 hover:shadow-popover",
+                    "card-surface overflow-hidden transition-all duration-200 ease-fluid hover:-translate-y-0.5 hover:shadow-float",
                     index === highlight ? "border-primary/70 ring-1 ring-primary/50" : "border-border"
                   )}
                 >

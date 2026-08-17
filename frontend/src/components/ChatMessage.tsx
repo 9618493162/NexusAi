@@ -255,28 +255,33 @@ export function ChatMessage({ message, replayLang, meta }: ChatMessageProps) {
       className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
     >
       <div className={cn("flex w-full items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
-        {/* Avatar */}
-        <div
-          className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ring-1",
-            isUser
-              ? "bg-gradient-to-br from-primary to-indigo-500 text-primary-foreground ring-primary/30"
-              : "bg-gradient-to-br from-violet-500/20 to-indigo-500/10 text-primary ring-primary/20"
+        {/* Avatar — glowing for the AI, clean gradient for the user */}
+        <div className="relative shrink-0">
+          {!isUser && (
+            <div aria-hidden className="absolute -inset-1 rounded-full bg-primary/20 blur-md" />
           )}
-          aria-hidden="true"
-        >
-          {isUser ? <User className="h-3.5 w-3.5" /> : "N"}
+          <div
+            className={cn(
+              "relative flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold ring-1",
+              isUser
+                ? "bg-gradient-to-br from-primary to-indigo-500 text-primary-foreground ring-primary/30 shadow-sm"
+                : "bg-gradient-to-br from-violet-500/25 to-indigo-500/10 text-primary ring-primary/25"
+            )}
+            aria-hidden="true"
+          >
+            {isUser ? <User className="h-3.5 w-3.5" /> : "N"}
+          </div>
         </div>
 
         <div className={cn("flex min-w-0 flex-col", isUser ? "items-end" : "w-full items-start")}>
-          {/* Editorial body: user replies are compact chips; assistant replies
-              are borderless, full-width prose with a comfortable measure. */}
+          {/* Editorial body: user replies are compact glowing chips; assistant
+              replies sit on a soft ambient surface — readable, never a heavy card. */}
           <div
             className={cn(
               "text-[15px] leading-relaxed",
               isUser
-                ? "max-w-[88%] rounded-2xl rounded-br-md bg-gradient-to-br from-primary to-primary-hover px-4 py-2.5 text-primary-foreground shadow-sm sm:max-w-[82%]"
-                : "w-full text-[15.5px] leading-[1.8]"
+                ? "max-w-[88%] rounded-2xl rounded-br-md bg-gradient-to-br from-primary to-primary-hover px-4 py-2.5 text-primary-foreground shadow-md shadow-primary/20 ring-1 ring-white/10 sm:max-w-[82%]"
+                : "w-full rounded-2xl border border-border/50 bg-card/45 px-4 py-3 backdrop-blur-[2px] sm:px-5 text-[15.5px] leading-[1.8]"
             )}
           >
             {isUser ? (

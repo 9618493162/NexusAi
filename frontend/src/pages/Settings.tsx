@@ -56,24 +56,29 @@ function Section({ icon: Icon, title, description, children }: { icon: React.Ele
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="card-surface overflow-hidden"
+      className="card-surface group relative overflow-hidden"
     >
-      <div className="border-b border-border px-6 py-4">
-        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <Icon className="h-4 w-4 text-primary" /> {title}
+      {/* Ambient corner glow — soft depth behind the panel content */}
+      <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary/8 blur-3xl transition-opacity duration-500" />
+      <div className="relative border-b border-border/70 bg-gradient-to-br from-card via-card to-card/60 px-6 py-4">
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/25 via-primary/10 to-primary/5 text-primary ring-1 ring-primary/20">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          {title}
         </h2>
-        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+        {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="relative p-6">{children}</div>
     </motion.section>
   );
 }
 
 function InfoRow({ label, value, icon: Icon, hint }: { label: string; value: React.ReactNode; icon?: React.ElementType; hint?: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-4 py-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/25 px-4 py-2.5 transition-colors hover:bg-muted/50">
       <span className="flex items-center gap-2 text-sm text-muted-foreground">
-        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
+        {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />}
         {label}
       </span>
       <span className="truncate text-right text-sm font-medium" title={hint}>{value}</span>
@@ -504,21 +509,54 @@ export function Settings() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Section navigation — horizontal pills on mobile, vertical rail on desktop */}
-        <nav aria-label="Settings sections" className="flex shrink-0 gap-1 overflow-x-auto pb-1 lg:w-56 lg:flex-col lg:overflow-visible lg:pb-0">
-          {SECTIONS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActive(key)}
-              aria-current={active === key ? "page" : undefined}
-              className={cn(
-                "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                active === key ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </button>
-          ))}
+        {/* Section navigation — horizontal glass pills on mobile, a spatial
+            vertical rail on desktop with a glowing active tile. */}
+        <nav
+          aria-label="Settings sections"
+          className="glass-strong flex shrink-0 gap-1 overflow-x-auto rounded-2xl p-2 lg:w-60 lg:flex-col lg:self-start lg:overflow-visible lg:rounded-2xl lg:bg-sidebar/60 lg:backdrop-blur-xl"
+        >
+          <div className="hidden items-center gap-2.5 border-b border-border/60 px-3 pb-3 pt-1 lg:flex">
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent text-primary ring-1 ring-primary/20">
+              <SlidersHorizontal className="h-4 w-4" strokeWidth={1.9} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold tracking-tight">Control Center</p>
+              <p className="text-[11px] text-muted-foreground">NexusAI settings</p>
+            </div>
+          </div>
+          {SECTIONS.map(({ key, label, icon: Icon }) => {
+            const isActive = active === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActive(key)}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "group relative flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors lg:px-3.5",
+                  isActive ? "text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="settings-active"
+                    className="absolute inset-0 rounded-xl border border-primary/25 bg-gradient-to-r from-primary/15 via-primary/8 to-transparent shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.05)]"
+                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                  />
+                )}
+                <span
+                  className={cn(
+                    "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 transition-colors",
+                    isActive
+                      ? "bg-gradient-to-br from-primary/25 via-primary/10 to-transparent text-primary ring-primary/25"
+                      : "bg-card/70 text-muted-foreground ring-border/70 group-hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" strokeWidth={isActive ? 2.1 : 1.8} />
+                </span>
+                <span className="relative">{label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         {/* Content */}
@@ -807,7 +845,8 @@ export function Settings() {
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {byok.keys.map((k) => (
-                      <div key={k.provider} className="rounded-xl border border-border/60 bg-muted/30 p-4 transition-colors hover:bg-muted/60">
+                      <div key={k.provider} className="card-surface group relative overflow-hidden p-4 transition-transform duration-200 ease-fluid hover:-translate-y-0.5">
+                        <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary/8 blur-2xl transition-opacity duration-300" />
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-sm font-medium">{k.name}</p>
@@ -892,7 +931,7 @@ export function Settings() {
                   </p>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {BYOK_FEATURES.map((f) => (
-                      <div key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3.5 py-2.5">
+                      <div key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/60 px-3.5 py-2.5 backdrop-blur-sm transition-colors hover:bg-card/90">
                         <span className="text-sm font-medium">{f.label}</span>
                         <Select
                           value={byok?.featureProviders?.[f.id] ?? ""}
@@ -918,8 +957,10 @@ export function Settings() {
               {byokModal && (() => {
                 const meta = byok?.keys.find((k) => k.provider === byokModal);
                 return (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setByokModal(null)}>
-                    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-popover">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setByokModal(null)}>
+                    <div onClick={(e) => e.stopPropagation()} className="glass-strong relative w-full max-w-md overflow-hidden rounded-2xl p-6 shadow-popover">
+                      <div aria-hidden className="pointer-events-none absolute -top-20 left-1/2 h-36 w-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+                      <div className="relative">
                       <h3 className="text-base font-semibold tracking-tight">Connect {meta?.name || byokModal}</h3>
                       <p className="mt-0.5 text-xs text-muted-foreground">Stored encrypted on the server — used only for your requests.</p>
                       <div className="mt-4 space-y-3">
@@ -964,6 +1005,7 @@ export function Settings() {
                           <KeyRound className="h-4 w-4 mr-2" /> Save key
                         </Button>
                       </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -981,7 +1023,7 @@ export function Settings() {
               ) : (
                 <div className="space-y-1.5">
                   {providers.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/60">
+                    <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/60 px-4 py-3 backdrop-blur-sm transition-colors hover:border-primary/25 hover:bg-card/90">
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{p.name}</p>
                         <p className="truncate text-xs text-muted-foreground">{p.usedFor}{p.detail ? ` — ${p.detail}` : ""}</p>
@@ -1000,7 +1042,7 @@ export function Settings() {
                   <Link2 className="h-4 w-4 text-primary" /> Connected accounts
                 </h3>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                  <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card/60 px-4 py-3 backdrop-blur-sm transition-colors hover:bg-card/90">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-sm font-bold text-neutral-700 ring-1 ring-border">G</div>
                       <div>
@@ -1145,7 +1187,7 @@ export function Settings() {
                   ) : (
                     <div className="space-y-2">
                       {sessions?.map((s) => (
-                        <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/60">
+                        <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/60 px-4 py-3 backdrop-blur-sm transition-colors hover:border-primary/25 hover:bg-card/90">
                           <div className="flex min-w-0 items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                               {isMobileDevice(s.device) ? <Smartphone className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
@@ -1192,16 +1234,19 @@ export function Settings() {
           {active === "data" && (
             <Section icon={Database} title="Data & Usage" description="Your real NexusAI usage from the backend">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><BarChart3 className="h-3.5 w-3.5" /> AI requests</p>
+                <div className="card-surface relative overflow-hidden p-4">
+                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><BarChart3 className="h-3.5 w-3.5 text-blue-500" /> AI requests</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums">{usage ? usage.totalRequests.toLocaleString() : "—"}</p>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Cpu className="h-3.5 w-3.5" /> Tokens</p>
+                <div className="card-surface relative overflow-hidden p-4">
+                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Cpu className="h-3.5 w-3.5 text-emerald-500" /> Tokens</p>
                   <p className="mt-1 text-2xl font-semibold tabular-nums">{usage ? usage.totalTokens.toLocaleString() : "—"}</p>
                 </div>
-                <div className="col-span-2 rounded-xl border border-border/60 bg-muted/30 p-4 sm:col-span-1">
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5" /> By type</p>
+                <div className="card-surface relative col-span-2 overflow-hidden p-4 sm:col-span-1">
+                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-primary/12 blur-2xl" />
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5 text-primary" /> By type</p>
                   <p className="mt-1 text-sm font-medium">
                     {Object.keys(usageByType).length
                       ? Object.entries(usageByType).map(([t, v]) => `${t}: ${v.toLocaleString()}`).join(" · ")
@@ -1267,7 +1312,7 @@ export function Settings() {
           )}
 
           {/* Legacy one-tap sign out stays visible in the rail footer */}
-          <div className="flex items-center justify-between rounded-2xl border border-destructive/25 bg-destructive/5 px-5 py-4">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/20 bg-gradient-to-r from-destructive/8 via-destructive/4 to-transparent px-5 py-4">
             <p className="text-sm text-muted-foreground">Need to leave quickly?</p>
             <Button variant="destructive" onClick={() => { logout(); navigate("/login"); }}>
               <LogOut className="h-4 w-4 mr-2" /> Logout

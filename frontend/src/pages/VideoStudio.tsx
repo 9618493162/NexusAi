@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { DictationButton } from "@/components/ui/dictation-button";
 import { videoService } from "@/services/video.service";
 import { providersService, ProviderStatus } from "@/services/providers.service";
+import { NexusCore } from "@/components/ui/nexus-core";
 import { cn } from "@/utils/cn";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -213,10 +214,7 @@ export function VideoStudio() {
                     />
                   ) : loading ? (
                     <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="relative h-20 w-20">
-                        <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-primary" />
-                      </div>
+                      <NexusCore size={72} state="thinking" />
                       <p className="text-sm">Rendering your video…</p>
                     </div>
                   ) : (

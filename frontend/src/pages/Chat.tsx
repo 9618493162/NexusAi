@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, Sparkles, Loader2, X, ArrowLeft, Plus, Mic, Volume2, VolumeX, Globe, Search, Languages, Brain, Bookmark, Check, CornerDownLeft } from "lucide-react";
+import { Send, Paperclip, Sparkles, Loader2, X, ArrowLeft, Plus, Mic, Volume2, VolumeX, Globe, Search, Languages, Brain, Bookmark, Check, CornerDownLeft, MessageSquare } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { PromptPicker } from "@/components/ui/prompt-picker";
 import { Button } from "@/components/ui/button";
 import { ChatMessage } from "@/components/ChatMessage";
+import { ChatRail } from "@/components/ChatRail";
 import { QuickActions } from "@/components/QuickActions";
+import { NexusCore } from "@/components/ui/nexus-core";
 import { chatService } from "@/services/chat.service";
 import { fileService } from "@/services/file.service";
 import { voiceService } from "@/services/voice.service";
@@ -90,6 +92,32 @@ export function Chat() {
   }, [authUser?.id]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Conversation rail: collapse preference + a refresh signal bumped when
+  //    a fresh chat turns into a saved conversation (so the list updates). ──
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try { return localStorage.getItem("nexusai-chat-rail-collapsed") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("nexusai-chat-rail-collapsed", railCollapsed ? "1" : "0"); } catch { /* ignore */ }
+  }, [railCollapsed]);
+  const [railRefresh, setRailRefresh] = useState(0);
+  const hadConversationRef = useRef(!!conversationId);
+  useEffect(() => {
+    // First time a fresh chat gains a real conversation id → bump the rail.
+    if (conversationId && !hadConversationRef.current) {
+      hadConversationRef.current = true;
+      setRailRefresh((v) => v + 1);
+    }
+    if (!conversationId) hadConversationRef.current = false;
+  }, [conversationId]);
+  // Mobile slide-in drawer for the conversation rail.
+  const [railMobileOpen, setRailMobileOpen] = useState(false);
+  // Close the drawer when the conversation changes (navigating in the drawer
+  // lands on a new chat, so it shouldn't stay covering the messages).
+  useEffect(() => {
+    setRailMobileOpen(false);
+  }, [id]);
 
   // Voice dictation — live WebSocket transcription through the backend (the
   // same Deepgram pipeline as the Voice Studio): interim words fill the
@@ -713,12 +741,37 @@ export function Chat() {
   const autoModel = model === "auto" ? (task ? recommendModel(input || " ", task) : "auto") : "";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      {/* Conversation rail — real conversations: collapsible rail on desktop,
+          slide-in drawer on mobile. */}
+      <ChatRail
+        activeId={id || conversationId}
+        collapsed={railCollapsed}
+        onToggleCollapse={() => setRailCollapsed((v) => !v)}
+        refreshSignal={railRefresh}
+        mobileOpen={railMobileOpen}
+        onCloseMobile={() => setRailMobileOpen(false)}
+      />
+
+      {/* Messages + composer */}
+      <div className="flex h-full min-w-0 flex-1 flex-col">
       {/* Messages */}
       <div className="relative flex-1 overflow-y-auto">
         {/* Ambient lighting — soft depth behind the conversation */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,hsl(var(--primary)/0.09),transparent)]" />
         <div className={cn("relative mx-auto w-full px-4 sm:px-6", messages.length === 0 ? "max-w-3xl" : "max-w-3xl py-6")}>
+          {/* Mobile conversation trigger — opens the slide-in rail drawer */}
+          <div className="mb-3 flex items-center gap-2 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setRailMobileOpen(true)}
+              aria-label="Open conversations"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Chats
+            </button>
+          </div>
           {(id || (conversationId && messages.length > 0)) && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               {id && (
@@ -785,10 +838,9 @@ export function Chat() {
           </div>
 
           {loading && (
-            <div className="flex items-center gap-1.5 py-3 text-muted-foreground" aria-label="NexusAI is thinking">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary" />
+            <div className="flex items-center gap-3 py-3 text-muted-foreground" aria-label="NexusAI is thinking">
+              <NexusCore size={22} state="thinking" />
+              <span className="text-[13px] font-medium">Nexus is thinking…</span>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -912,21 +964,28 @@ export function Chat() {
 
           {/* Controls row */}
           <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Select
-              value={model}
-              onChange={(v) => {
-                setModel(v);
-                if (v !== "auto") rememberTaskModel(task || "_default", v);
-              }}
-              options={
-                models.length > 0
-                  ? models.map((m) => ({ value: m.id, label: m.name }))
-                  : [{ value: "auto", label: "Auto — best for task" }]
-              }
-              searchable
-              ariaLabel="Model"
-              leadingIcon={<Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />}
-            />
+            <div className="relative">
+              <div aria-hidden className="pointer-events-none absolute -inset-1 rounded-full bg-primary/15 blur-lg" />
+              <Select
+                value={model}
+                onChange={(v) => {
+                  setModel(v);
+                  if (v !== "auto") rememberTaskModel(task || "_default", v);
+                }}
+                options={
+                  models.length > 0
+                    ? models.map((m) => ({ value: m.id, label: m.name }))
+                    : [{ value: "auto", label: "Auto — best for task" }]
+                }
+                searchable
+                ariaLabel="Model"
+                leadingIcon={
+                  <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/25 via-primary/10 to-transparent ring-1 ring-primary/25">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                  </span>
+                }
+              />
+            </div>
 
             <button
               type="button"
@@ -1140,6 +1199,7 @@ export function Chat() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
