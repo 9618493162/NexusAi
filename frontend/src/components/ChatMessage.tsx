@@ -62,6 +62,7 @@ SyntaxHighlighter.alias("cpp", ["c++"]);
 SyntaxHighlighter.alias("csharp", ["cs"]);
 SyntaxHighlighter.alias("markdown", ["md"]);
 import { Volume2, Loader2, Square, ChevronUp, Copy, Check, User } from "lucide-react";
+import { NexusCore } from "@/components/ui/nexus-core";
 import { cn } from "@/utils/cn";
 import { getLangColor } from "@/utils/languageColors";
 import { playSpeech, stopCurrentSpeech } from "@/utils/speech";
@@ -74,6 +75,10 @@ interface ChatMessageProps {
   replayLang?: string;
   /** Optional element rendered under the bubble (e.g. an attachment chip). */
   meta?: React.ReactNode;
+  /** Deep-reasoning phase: the model is thinking before answering (e.g. NVIDIA Inkling). */
+  thinking?: boolean;
+  /** Streamed reasoning text during the thinking phase (transient, never persisted). */
+  reasoning?: string;
 }
 
 interface VoiceOption {
@@ -81,7 +86,7 @@ interface VoiceOption {
   label: string;
 }
 
-export function ChatMessage({ message, replayLang, meta }: ChatMessageProps) {
+export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [fetching, setFetching] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -286,6 +291,22 @@ export function ChatMessage({ message, replayLang, meta }: ChatMessageProps) {
           >
             {isUser ? (
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            ) : !message.content && (thinking || reasoning) ? (
+              /* Deep-reasoning panel — honest thinking state: the model streams
+                 its reasoning live while it works, then the answer replaces it
+                 the moment content arrives. Rendered at its resting position
+                 (no off-screen animation). */
+              <div className="w-full">
+                <div className="flex items-center gap-2">
+                  <NexusCore size={16} state="thinking" />
+                  <span className="text-xs font-medium text-muted-foreground">Deep reasoning — Nexus is thinking…</span>
+                </div>
+                {reasoning ? (
+                  <div className="mt-2.5 max-h-44 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border/50 bg-muted/30 px-3 py-2 font-mono text-[11.5px] leading-relaxed text-muted-foreground/90">
+                    {reasoning}
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <div className={cn("prose-nexus", streaming && "streaming-caret")}>
                 <ReactMarkdown

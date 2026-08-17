@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import * as chatService from "../services/chat.service";
 import * as searchService from "../services/search.service";
+import { NVIDIA_REASONING_START, NVIDIA_REASONING_END } from "../services/nvidia.service";
 import { logger } from "../config/logger";
 
 export const chatValidators = [
@@ -81,8 +82,27 @@ export async function streamChat(req: AuthenticatedRequest, res: Response): Prom
     res.setHeader("Connection", "keep-alive");
 
     let fullResponse = "";
+    // Deep-reasoning models (e.g. NVIDIA Inkling) stream a thinking phase
+    // before the answer. The markers arrive only for the chat feature; they
+    // become {thinking}/{reasoning} SSE events so the UI can show an honest
+    // "thinking…" state. Reasoning text is never persisted into the reply.
+    let inReasoning = false;
 
     for await (const chunk of chatService.streamChat(allMessages, model, userId)) {
+      if (chunk === NVIDIA_REASONING_START) {
+        inReasoning = true;
+        res.write(`data: ${JSON.stringify({ thinking: true, conversationId: convId })}\n\n`);
+        continue;
+      }
+      if (chunk === NVIDIA_REASONING_END) {
+        inReasoning = false;
+        res.write(`data: ${JSON.stringify({ thinking: false, conversationId: convId })}\n\n`);
+        continue;
+      }
+      if (inReasoning) {
+        res.write(`data: ${JSON.stringify({ reasoning: chunk, conversationId: convId })}\n\n`);
+        continue;
+      }
       fullResponse += chunk;
       res.write(`data: ${JSON.stringify({ content: chunk, conversationId: convId })}\n\n`);
     }

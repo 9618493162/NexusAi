@@ -3,11 +3,18 @@ import { groq, GROQ_MODELS } from "../config/ai";
 import { prisma } from "../config/database";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
+import { retrieveFileContext } from "./retrieval.service";
 import { streamGeminiChat } from "./gemini.service";
 import { streamOpenRouterChat } from "./openrouter.service";
 import { streamMistralChat } from "./mistral.service";
 import { streamKimiChat } from "./kimi.service";
-import { streamNvidiaChat, NVIDIA_MODELS, NVIDIA_MODEL_NAMES } from "./nvidia.service";
+import {
+  streamNvidiaChat,
+  NVIDIA_MODELS,
+  NVIDIA_MODEL_NAMES,
+  NVIDIA_REASONING_START,
+  NVIDIA_REASONING_END,
+} from "./nvidia.service";
 import { streamGridChat, GRID_MODELS } from "./grid.service";
 import { resolveProviderKey, resolveAutoModel, recordKeyUsage, BYOK_PROVIDERS } from "./provider-keys.service";
 
@@ -78,7 +85,26 @@ export async function* streamChat(
         yield chunk;
       }
     } else if (provider === "nvidia") {
+      // Deep-reasoning markers frame the thinking phase. Only the chat SSE
+      // route surfaces them ({thinking}/{reasoning} events); every other
+      // consumer (agents, documents, meetings, workflows, …) gets pure
+      // content — reasoning text is never part of their output or usage.
+      let inReasoning = false;
       for await (const chunk of streamNvidiaChat(messages, model, userKey ?? undefined)) {
+        if (chunk === NVIDIA_REASONING_START) {
+          inReasoning = true;
+          if (feature === "chat") yield chunk;
+          continue;
+        }
+        if (chunk === NVIDIA_REASONING_END) {
+          inReasoning = false;
+          if (feature === "chat") yield chunk;
+          continue;
+        }
+        if (inReasoning) {
+          if (feature === "chat") yield chunk;
+          continue;
+        }
         fullContent += chunk;
         yield chunk;
       }
@@ -255,11 +281,17 @@ const FILE_CONTEXT_LIMIT = 20000;
  * file by id (ownership-scoped — a user can never pull another user's file)
  * and build the exact `[File: name]` context blocks. Files without real
  * extracted text are skipped, and a deleted/missing file simply yields no
- * context. No vector store: the file's extracted text IS the retrieval unit.
+ * context.
+ *
+ * Semantic step: when the NVIDIA embedding key is configured, the user's
+ * question is embedded against overlapping chunks of the file and only the
+ * most relevant excerpts are injected (real nv-embed-v1 retrieval, cached per
+ * file). Any retrieval failure falls back to the full-text slice below — a
+ * search hiccup must never block a chat reply.
  */
 export async function getFileContexts(
   userId: string,
-  messages: Array<{ fileId?: string | null }>
+  messages: Array<{ fileId?: string | null; content?: string }>
 ): Promise<Record<string, string>> {
   const ids = Array.from(new Set(messages.map((m) => m.fileId).filter((id): id is string => !!id)));
   if (ids.length === 0) return {};
@@ -273,7 +305,14 @@ export async function getFileContexts(
   for (const file of files) {
     const text = (file.extractedText || "").trim();
     if (!text || text === "File processing disabled") continue;
-    contexts[file.id] = `\n\n[File: ${file.originalName}]\n${text.slice(0, FILE_CONTEXT_LIMIT)}`;
+    // The question that referenced this file is the retrieval query.
+    const query = messages.find((m) => m.fileId === file.id)?.content || "";
+    const retrieved = env.NVIDIA_NIM_API_KEY ? await retrieveFileContext(query, text) : null;
+    if (retrieved) {
+      contexts[file.id] = `\n\n[File: ${file.originalName} — relevant excerpts]\n${retrieved}`;
+    } else {
+      contexts[file.id] = `\n\n[File: ${file.originalName}]\n${text.slice(0, FILE_CONTEXT_LIMIT)}`;
+    }
   }
   return contexts;
 }

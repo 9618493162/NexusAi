@@ -54,6 +54,11 @@ export function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Deep-reasoning phase (e.g. NVIDIA Inkling): the model streams its
+  // reasoning before the answer. Shown as an honest "thinking…" panel on the
+  // in-flight assistant message; never persisted into the reply.
+  const [assistantThinking, setAssistantThinking] = useState(false);
+  const [assistantReasoning, setAssistantReasoning] = useState("");
   const [conversationId, setConversationId] = useState(id);
   const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
   const [model, setModel] = useState("");
@@ -527,6 +532,8 @@ export function Chat() {
     setInput("");
     setLoading(true);
     setError("");
+    setAssistantThinking(false);
+    setAssistantReasoning("");
     let assistantContent = "";
     try {
       // Translate replies into the chosen language when speak-translate is on
@@ -567,7 +574,24 @@ export function Chat() {
               setError(typeof data.error === "string" ? data.error : "Chat failed. Check your API keys.");
               break;
             }
+            // Deep-reasoning phase: thinking markers frame the reasoning text
+            // streamed by models like NVIDIA Inkling. The reasoning is shown
+            // live on the message as an honest "thinking…" panel, and cleared
+            // the moment real content starts.
+            if (data.thinking === true) {
+              setAssistantThinking(true);
+              continue;
+            }
+            if (data.thinking === false) {
+              setAssistantThinking(false);
+              continue;
+            }
+            if (data.reasoning) {
+              setAssistantReasoning((prev) => prev + data.reasoning);
+              continue;
+            }
             if (data.content) {
+              setAssistantThinking(false);
               assistantContent += data.content;
               setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: assistantContent } : m));
             }
@@ -581,6 +605,7 @@ export function Chat() {
     } catch (err) { console.error("Chat error:", err); setError("Chat failed. Check your API keys."); }
     finally {
       setLoading(false);
+      setAssistantThinking(false);
       if (speakEnabled && assistantContent) {
         try { await speakReply(assistantContent); } catch { /* spoken reply is best-effort */ }
       }
@@ -833,7 +858,13 @@ export function Chat() {
             {messages.map((message) => (
               // Replay in the language the reply was actually spoken in (saved on
               // the message), falling back to the current speak-translate setting.
-              <ChatMessage key={message.id} message={message} replayLang={message.language || speakLang} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                replayLang={message.language || speakLang}
+                thinking={assistantThinking && message.id === (messages[messages.length - 1]?.id)}
+                reasoning={message.id === (messages[messages.length - 1]?.id) ? assistantReasoning : ""}
+              />
             ))}
           </div>
 
