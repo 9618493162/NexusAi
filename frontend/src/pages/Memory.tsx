@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Brain, MessageSquare, FileText, Mic, Sparkles, Search, ArrowUpRight,
   Trash2, X, Pin, Globe, Palette, User, Mail, Cpu, Loader2, ShieldCheck,
@@ -13,6 +13,7 @@ import { voiceService, VoiceSession } from "@/services/voice.service";
 import { Conversation, FileItem } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NexusCore } from "@/components/ui/nexus-core";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { SpatialEnvironment } from "@/components/ui/spatial-environment";
 import { cn } from "@/utils/cn";
 import {
@@ -749,120 +750,92 @@ export function Memory() {
         </motion.div>
       </div>
 
-      {/* ── Detail drawer — spatial surface that moves forward ──────────── */}
-      <AnimatePresence>
-        {selected && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={reduced ? { duration: 0 } : { duration: 0.2 }}
+      {/* ── Detail drawer — shared slide-in panel (desktop + mobile) ── */}
+      <MobileDrawer
+        open={!!selected}
+        onClose={() => { setSelected(null); setConfirmForget(false); }}
+        title={selected?.title ?? "Memory detail"}
+        icon={
+          selected ? (
+            selected.category === "chat" ? <MessageSquare className="h-4 w-4" /> : selected.category === "file" ? <FileText className="h-4 w-4" /> : selected.category === "voice" ? <Mic className="h-4 w-4" /> : selected.category === "prompt" ? <Bookmark className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />
+          ) : undefined
+        }
+        side="right"
+        panelClassName="w-full max-w-md"
+        mobileOnly={false}
+        footer={
+          selected?.route ? (
+            <Link
+              to={selected.route}
               onClick={() => { setSelected(null); setConfirmForget(false); }}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-              aria-hidden="true"
-            />
-            <motion.aside
-              role="dialog"
-              aria-modal="true"
-              aria-label={`${selected.title} — memory detail`}
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 40 }}
-              className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-card shadow-2xl"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"
             >
-              <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                    selected.category === "chat" ? "bg-primary/10 text-primary" : selected.category === "file" ? "bg-emerald-500/10 text-emerald-500" : selected.category === "voice" ? "bg-blue-500/10 text-blue-500" : selected.category === "prompt" ? "bg-amber-500/10 text-amber-500" : "bg-violet-500/10 text-violet-500"
-                  )}>
-                    {selected.category === "chat" ? <MessageSquare className="h-4 w-4" /> : selected.category === "file" ? <FileText className="h-4 w-4" /> : selected.category === "voice" ? <Mic className="h-4 w-4" /> : selected.category === "prompt" ? <Bookmark className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{selected.title}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{selected.category}</p>
-                  </div>
+              Open <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          ) : undefined
+        }
+      >
+        {selected && (
+          <div className="p-2">
+            <span className={cn(
+              "mb-3 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              selected.category === "chat" ? "bg-primary/10 text-primary" : selected.category === "file" ? "bg-emerald-500/10 text-emerald-500" : selected.category === "voice" ? "bg-blue-500/10 text-blue-500" : selected.category === "prompt" ? "bg-amber-500/10 text-amber-500" : "bg-violet-500/10 text-violet-500"
+            )}>
+              {selected.category}
+            </span>
+            <dl className="mb-4 grid grid-cols-2 gap-2 text-xs">
+              {selected.meta.map((m) => (
+                <div key={m.label} className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{m.label}</dt>
+                  <dd className="mt-0.5 truncate font-medium">{m.value}</dd>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelected(null); setConfirmForget(false); }}
-                  aria-label="Close memory detail"
-                  className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <X className="h-4.5 w-4.5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-5 py-4">
-                <dl className="mb-4 grid grid-cols-2 gap-2 text-xs">
-                  {selected.meta.map((m) => (
-                    <div key={m.label} className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
-                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{m.label}</dt>
-                      <dd className="mt-0.5 truncate font-medium">{m.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remembered content</h3>
-                <p className="whitespace-pre-wrap rounded-xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed">
-                  {selected.body}
-                </p>
-                {selected.deleteLabel && (
-                  <div className="mt-4">
-                    {confirmForget ? (
-                      <div className="rounded-xl border border-destructive/30 bg-destructive/8 p-3.5">
-                        <p className="text-sm font-medium">Forget this memory?</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">This will permanently remove it from your account.</p>
-                        {forgetError && <p role="alert" className="mt-2 text-xs text-destructive">{forgetError}</p>}
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={forgetItem}
-                            disabled={forgetting}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3.5 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
-                          >
-                            {forgetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                            Forget
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmForget(false)}
-                            disabled={forgetting}
-                            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
+              ))}
+            </dl>
+            <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remembered content</h3>
+            <p className="whitespace-pre-wrap rounded-xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed">
+              {selected.body}
+            </p>
+            {selected.deleteLabel && (
+              <div className="mt-4">
+                {confirmForget ? (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/8 p-3.5">
+                    <p className="text-sm font-medium">Forget this memory?</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">This will permanently remove it from your account.</p>
+                    {forgetError && <p role="alert" className="mt-2 text-xs text-destructive">{forgetError}</p>}
+                    <div className="mt-3 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setConfirmForget(true)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3.5 py-2 text-sm font-medium text-destructive/80 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        onClick={forgetItem}
+                        disabled={forgetting}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3.5 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> {selected.deleteLabel}
+                        {forgetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        Forget
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => setConfirmForget(false)}
+                        disabled={forgetting}
+                        className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmForget(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3.5 py-2 text-sm font-medium text-destructive/80 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> {selected.deleteLabel}
+                  </button>
                 )}
               </div>
-
-              {selected.route && (
-                <div className="border-t border-border p-4">
-                  <Link
-                    to={selected.route}
-                    onClick={() => { setSelected(null); setConfirmForget(false); }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"
-                  >
-                    Open <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              )}
-            </motion.aside>
-          </>
+            )}
+          </div>
         )}
-      </AnimatePresence>
+      </MobileDrawer>
     </div>
   );
 }

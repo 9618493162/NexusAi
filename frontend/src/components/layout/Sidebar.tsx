@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useAuthStore } from "@/store/auth.store";
 import {
   LayoutDashboard, MessageSquare, Bot, Image, Video, Mic, FileText, Brain,
@@ -71,6 +71,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
+  const reducedMotion = useReducedMotion();
   const location = useLocation();
   const { user, logout } = useAuthStore();
 
@@ -234,8 +235,11 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
             aria-hidden="true"
           />
+          {/* Reduced motion: render at the resting position with no animation
+              so the drawer is always usable (and never stuck off-screen if rAF
+              is suspended). */}
           <motion.aside
-            initial={{ x: -280 }}
+            initial={{ x: reducedMotion ? 0 : -280 }}
             animate={{ x: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 36 }}
             className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-sidebar-border bg-sidebar lg:hidden"

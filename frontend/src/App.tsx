@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
+import { MotionConfig } from "framer-motion";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageLoader } from "@/components/PageLoader";
 import { useAuthStore } from "@/store/auth.store";
@@ -98,6 +99,11 @@ export default function App() {
   }, [mode]);
 
   return (
+    // reducedMotion="user" makes framer-motion render transform/layout
+    // animations at their final values when the user prefers reduced motion,
+    // so no slide-in panel can ever freeze partway off-screen (or stay stuck
+    // when rAF is suspended). Opacity-only effects still animate normally.
+    <MotionConfig reducedMotion="user">
     <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route element={<OnboardingGate />}>
@@ -145,5 +151,6 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </Suspense>
+    </MotionConfig>
   );
 }
