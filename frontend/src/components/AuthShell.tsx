@@ -32,12 +32,14 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
               Nexus<span className="text-gradient">AI</span>
             </span>
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+          <h1 className="display-tight text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
         </div>
 
-        <div className="card-surface p-6 shadow-popover sm:p-7">
-          {children}
+        {/* Glass card with a soft top-light and glow — the cinematic auth surface */}
+        <div className="glass-strong relative overflow-hidden rounded-2xl p-6 shadow-popover sm:p-7">
+          <div aria-hidden className="pointer-events-none absolute -top-24 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+          <div className="relative">{children}</div>
         </div>
 
         {footer && <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div>}

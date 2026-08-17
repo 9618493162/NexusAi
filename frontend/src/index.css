@@ -44,20 +44,20 @@
 
   .dark {
     color-scheme: dark;
-    --background: 240 14% 4%;
+    --background: 240 20% 3.4%;
     --foreground: 240 14% 94%;
-    --card: 240 12% 6.5%;
+    --card: 240 14% 6.2%;
     --card-foreground: 240 14% 94%;
-    --popover: 240 12% 7.5%;
+    --popover: 240 13% 7.2%;
     --popover-foreground: 240 14% 94%;
-    --primary: 258 84% 68%;
-    --primary-hover: 258 86% 74%;
+    --primary: 258 86% 70%;
+    --primary-hover: 258 88% 76%;
     --primary-soft: 258 60% 16%;
     --primary-foreground: 240 14% 6%;
     --secondary: 240 10% 14%;
     --secondary-foreground: 240 14% 92%;
     --muted: 240 10% 13%;
-    --muted-foreground: 240 8% 58%;
+    --muted-foreground: 240 9% 60%;
     --accent: 240 12% 17%;
     --accent-foreground: 240 14% 92%;
     --destructive: 0 66% 58%;
@@ -65,17 +65,35 @@
     --success: 152 62% 46%;
     --warning: 38 95% 56%;
     --info: 213 94% 64%;
-    --border: 240 10% 15%;
-    --input: 240 10% 18%;
+    --border: 240 12% 15.5%;
+    --input: 240 11% 18.5%;
     --ring: 258 84% 68%;
-    --sidebar: 240 14% 5%;
+    --sidebar: 240 18% 4.6%;
     --sidebar-foreground: 240 14% 90%;
-    --sidebar-border: 240 10% 14%;
+    --sidebar-border: 240 12% 13%;
     --sidebar-accent: 240 12% 12%;
     --sidebar-accent-foreground: 240 14% 94%;
-    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-popover: 0 4px 6px -2px rgb(0 0 0 / 0.4), 0 12px 24px -6px rgb(0 0 0 / 0.5);
-    --shadow-float: 0 8px 16px -4px rgb(0 0 0 / 0.4), 0 24px 48px -12px rgb(0 0 0 / 0.6);
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 1px 3px 0 rgb(0 0 0 / 0.4);
+    --shadow-popover: 0 4px 6px -2px rgb(0 0 0 / 0.45), 0 12px 24px -6px rgb(0 0 0 / 0.55);
+    --shadow-float: 0 8px 16px -4px rgb(0 0 0 / 0.45), 0 24px 48px -12px rgb(0 0 0 / 0.65);
+  }
+
+  /* Cinematic ambient backdrop — a deep violet wash from the top that
+     gives every page (landing, auth, app shell) a sense of space without
+     touching layout. Cheap: one fixed radial, GPU-composited. */
+  body {
+    background-image:
+      radial-gradient(62% 44% at 50% -6%, hsl(var(--primary) / 0.11), transparent 68%),
+      radial-gradient(38% 32% at 92% 4%, hsl(199 95% 48% / 0.05), transparent 70%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+  .dark body {
+    background-image:
+      radial-gradient(62% 44% at 50% -6%, hsl(258 84% 62% / 0.13), transparent 68%),
+      radial-gradient(38% 32% at 92% 4%, hsl(199 95% 48% / 0.06), transparent 70%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
 
   * {
@@ -182,7 +200,10 @@
   /* ---------- Cards ---------- */
   .card-surface {
     @apply bg-card text-card-foreground border border-border rounded-xl;
-    box-shadow: var(--shadow-card);
+    background-image: linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.93));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.045),
+      var(--shadow-card);
   }
   .card-hover {
     transition: transform var(--duration-base) var(--ease-fluid), box-shadow var(--duration-base) var(--ease-fluid), border-color var(--duration-base) var(--ease-fluid), background-color var(--duration-base) ease;
@@ -196,12 +217,12 @@
 
   /* ---------- Glass material ---------- */
   .glass {
-    background: hsl(var(--card) / 0.72);
+    background: linear-gradient(165deg, hsl(var(--card) / 0.8), hsl(var(--card) / 0.62));
     -webkit-backdrop-filter: blur(16px) saturate(1.45);
     backdrop-filter: blur(16px) saturate(1.45);
     border: 1px solid hsl(var(--border) / 0.65);
     box-shadow:
-      inset 0 1px 0 0 hsl(var(--foreground) / 0.05),
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.06),
       var(--shadow-popover);
   }
   .glass-strong {
@@ -221,6 +242,20 @@
     background-clip: text;
     color: transparent;
   }
+  .text-aurora {
+    background: linear-gradient(100deg, hsl(var(--primary)) 0%, #818cf8 45%, #22d3ee 92%);
+    background-size: 160% 160%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: aurora-pan 9s ease-in-out infinite alternate;
+  }
+  @keyframes aurora-pan {
+    to { background-position: 100% 50%; }
+  }
+  .display-tight {
+    letter-spacing: -0.03em;
+  }
   .text-balance {
     text-wrap: balance;
   }
@@ -228,6 +263,9 @@
   /* ---------- Brand glow for AI surfaces ---------- */
   .glow-primary {
     box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25), 0 8px 40px -8px hsl(var(--primary) / 0.35);
+  }
+  .glow-primary-strong {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 12px 56px -10px hsl(var(--primary) / 0.55);
   }
 
   /* ---------- Skeleton shimmer ---------- */
