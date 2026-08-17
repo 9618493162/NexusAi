@@ -23,9 +23,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://frontend-rouge-alpha-62.vercel.app
+        value: https://nexus-ai.vercel.app
       - key: CORS_ORIGINS
-        value: https://9618493162.github.io,https://frontend-production-eef8.up.railway.app
+        value: https://nexus-ai.vercel.app,https://frontend-rouge-alpha-62.vercel.app,https://9618493162.github.io,https://frontend-production-eef8.up.railway.app
       - key: ENABLE_FILE_PROCESSOR
         value: "false"
       - key: DATABASE_URL
