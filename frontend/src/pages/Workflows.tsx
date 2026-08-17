@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Plus, Loader2, Workflow as WorkflowIcon, Zap, ArrowRight, Trash2, Play } from "lucide-react";
 import { workflowsService, WorkflowRun } from "@/services/workflows.service";
 import { TEMPLATES } from "@/utils/workflowNodes";
@@ -26,6 +26,7 @@ function fmtDate(iso: string): string {
 
 export function Workflows() {
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
   const [workflows, setWorkflows] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -98,7 +99,7 @@ export function Workflows() {
       <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
         {/* Hero */}
         <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }}>
+          <motion.div initial={reduced ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Automation</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
               Nexus <span className="text-gradient">Workflows</span>
@@ -109,7 +110,7 @@ export function Workflows() {
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
               <button
                 onClick={() => setCreateOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow-primary transition-all hover:opacity-90"
               >
                 <Plus className="h-4 w-4" /> New workflow
               </button>
@@ -122,13 +123,13 @@ export function Workflows() {
             </div>
             {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15, duration: 0.5 }} className="relative hidden lg:block">
+          <motion.div initial={reduced ? false : { opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15, duration: 0.5 }} className="relative hidden lg:block">
             <NexusCore size={220} />
           </motion.div>
         </div>
 
         {/* Templates */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.35 }} className="mt-10">
+        <motion.div initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.35 }} className="mt-10">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
             <Zap className="h-4 w-4 text-muted-foreground" /> Start from a template
           </h2>
@@ -136,7 +137,7 @@ export function Workflows() {
             {TEMPLATES.map((t, i) => (
               <motion.button
                 key={t.name}
-                initial={{ opacity: 0, y: 8 }}
+                initial={reduced ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * i }}
                 onClick={() => createWorkflow(t)}
@@ -166,17 +167,18 @@ export function Workflows() {
               {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
             </div>
           ) : workflows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
-              <WorkflowIcon className="mb-3 h-8 w-8 text-muted-foreground/60" strokeWidth={1.6} />
-              <p className="text-sm font-medium">No workflows yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">Pick a template above or start from scratch — every node executes for real.</p>
+            <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center backdrop-blur-sm">
+              <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(60%_100%_at_50%_0%,hsl(var(--primary)/0.08),transparent)]" />
+              <WorkflowIcon className="relative mb-3 h-8 w-8 text-muted-foreground/60" strokeWidth={1.6} />
+              <p className="relative text-sm font-medium">No workflows yet</p>
+              <p className="relative mt-1 text-xs text-muted-foreground">Pick a template above or start from scratch — every node executes for real.</p>
             </div>
           ) : (
             <div className="space-y-2.5">
               {workflows.map((w, index) => {
                 const run = latestRuns[w.id];
                 return (
-                  <motion.div key={w.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+                  <motion.div key={w.id} initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
                     <Link to={`/workflows/${w.id}`} className="card-surface card-hover group flex items-center gap-3 p-3.5">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500">
                         <WorkflowIcon className="h-4 w-4" strokeWidth={1.8} />
@@ -206,14 +208,13 @@ export function Workflows() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Create dialog */}
+      </div>        {/* Create dialog */}
       {createOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Create workflow">
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.18 }} className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
-            <h2 className="text-lg font-bold tracking-tight">New workflow</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Name it — then build the graph in the editor.</p>
+          <motion.div initial={reduced ? false : { opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.18 }} className="card-surface relative w-full max-w-md overflow-hidden rounded-2xl border border-border p-6 shadow-2xl">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(70%_100%_at_50%_0%,hsl(var(--primary)/0.12),transparent)]" />
+            <h2 className="relative text-lg font-bold tracking-tight">New workflow</h2>
+            <p className="relative mt-1 text-xs text-muted-foreground">Name it — then build the graph in the editor.</p>
             <form
               onSubmit={(e) => { e.preventDefault(); createWorkflow(); }}
               className="mt-4 space-y-3"
@@ -224,14 +225,14 @@ export function Workflows() {
                 placeholder="Workflow name"
                 aria-label="Workflow name"
                 autoFocus
-                className="w-full rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary/60"
+                className="surface-glow w-full rounded-xl border border-border bg-card/80 px-3.5 py-2.5 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/60"
               />
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What does it do? (optional)"
                 aria-label="Workflow description"
-                className="w-full rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-primary/60"
+                className="surface-glow w-full rounded-xl border border-border bg-card/80 px-3.5 py-2.5 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/60"
               />
               <div className="flex justify-end gap-2 pt-1">
                 <button
@@ -244,7 +245,7 @@ export function Workflows() {
                 <button
                   type="submit"
                   disabled={creating || !name.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow-primary transition-all hover:opacity-90 disabled:opacity-50"
                 >
                   {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                   Create

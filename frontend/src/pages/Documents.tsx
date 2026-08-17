@@ -154,7 +154,7 @@ export function Documents() {
           </div>
           <button
             onClick={() => void openCreate()}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-glow-primary transition-all hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Create document
           </button>
@@ -224,21 +224,22 @@ export function Documents() {
 
         {/* Create modal */}
         {createOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !creating && setCreateOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => !creating && setCreateOpen(false)}>
             <div
-              className="card-surface w-full max-w-lg rounded-2xl p-6"
+              className="card-surface relative w-full max-w-lg overflow-hidden rounded-2xl p-6"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-label="Create document"
             >
-              <h2 className="mb-4 text-lg font-semibold">Create a document</h2>
+              <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(70%_100%_at_50%_0%,hsl(var(--primary)/0.12),transparent)]" />
+              <h2 className="relative mb-4 text-lg font-semibold">Create a document</h2>
 
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Title / topic</label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. AI in Education: A 2026 Overview"
-                className="mb-4 h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary/50"
+                className="surface-glow mb-4 h-10 w-full rounded-lg border border-border bg-card/80 px-3 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/50"
                 autoFocus
               />
 
@@ -249,8 +250,10 @@ export function Documents() {
                     key={t.id}
                     onClick={() => setType(t.id)}
                     className={cn(
-                      "flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition-colors",
-                      type === t.id ? "border-primary bg-primary/10 text-primary" : "border-muted hover:border-primary/40"
+                      "card-surface flex flex-col items-center gap-1 rounded-xl p-3 text-center transition-all",
+                      type === t.id
+                        ? "border-primary/50 bg-primary/10 text-primary shadow-sm ring-1 ring-primary/30"
+                        : "border-border hover:border-primary/40 hover:bg-primary/5"
                     )}
                   >
                     <t.icon className="h-5 w-5" />
@@ -268,8 +271,10 @@ export function Documents() {
                     setSourceId("");
                   }}
                   className={cn(
-                    "rounded-full px-3 py-1 text-xs",
-                    sourceType === "" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    "rounded-full px-3 py-1 text-xs shadow-sm transition-colors",
+                    sourceType === ""
+                      ? "bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground ring-1 ring-primary/40"
+                      : "border border-border bg-card/70 text-muted-foreground backdrop-blur-sm hover:border-primary/30 hover:text-foreground"
                   )}
                 >
                   None — from topic only
@@ -282,8 +287,10 @@ export function Documents() {
                       setSourceId("");
                     }}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs",
-                      sourceType === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      "rounded-full px-3 py-1 text-xs shadow-sm transition-colors",
+                      sourceType === s
+                        ? "bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground ring-1 ring-primary/40"
+                        : "border border-border bg-card/70 text-muted-foreground backdrop-blur-sm hover:border-primary/30 hover:text-foreground"
                     )}
                   >
                     {SOURCE_LABEL[s]}
@@ -294,7 +301,7 @@ export function Documents() {
                 <select
                   value={sourceId}
                   onChange={(e) => setSourceId(e.target.value)}
-                  className="mb-4 h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary/50"
+                  className="surface-glow mb-4 h-10 w-full rounded-lg border border-border bg-card/80 px-3 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/50"
                 >
                   <option value="">Select {SOURCE_LABEL[sourceType]}…</option>
                   {sourceList.map((s) => (
@@ -316,7 +323,7 @@ export function Documents() {
                 <button
                   onClick={() => void submit()}
                   disabled={!title.trim() || creating}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow-primary transition-all hover:opacity-90 disabled:opacity-50"
                 >
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   {creating ? "Creating…" : "Create & open"}

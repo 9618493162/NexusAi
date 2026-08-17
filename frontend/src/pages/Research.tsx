@@ -111,7 +111,7 @@ function FindingCard({ finding, sources }: { finding: ResearchFinding; sources: 
     .map((id) => sources.find((s) => s.id === id))
     .filter((s): s is ResearchSource => !!s);
   return (
-    <div className="rounded-xl border border-muted bg-muted/20 p-4">
+    <div className="card-surface rounded-xl p-4">
       <p className="text-sm font-semibold">{finding.claim}</p>
       <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{finding.detail}</p>
       {cited.length > 0 && (
@@ -358,8 +358,8 @@ export function Research() {
           {/* Query input */}
           <div className="w-full max-w-3xl">
             <div className="card-surface rounded-2xl p-4">
-              <div className="flex items-start gap-3">
-                <span className="mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="surface-glow flex items-start gap-3 rounded-xl">
+                <span className="mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/25 via-primary/10 to-transparent text-primary ring-1 ring-primary/20">
                   <Compass className="h-4 w-4" />
                 </span>
                 <textarea
@@ -383,8 +383,10 @@ export function Research() {
                       key={m}
                       onClick={() => setMode(m)}
                       className={cn(
-                        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                        mode === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                        "rounded-full px-3 py-1 text-xs font-medium shadow-sm transition-colors",
+                        mode === m
+                          ? "bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground ring-1 ring-primary/40"
+                          : "border border-border bg-card/70 text-muted-foreground backdrop-blur-sm hover:border-primary/30 hover:text-foreground"
                       )}
                     >
                       {m === "quick" ? "Quick search" : "Deep research"}
@@ -397,7 +399,7 @@ export function Research() {
                 <button
                   onClick={() => void start()}
                   disabled={!query.trim() || starting || running}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-4 py-2 text-sm font-medium text-primary-foreground shadow-glow-primary transition-all hover:opacity-90 disabled:opacity-50"
                 >
                   {starting || running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   {starting ? "Starting…" : running ? "Researching…" : "Start research"}
@@ -409,7 +411,7 @@ export function Research() {
                 <button
                   key={s}
                   onClick={() => setQuery(s)}
-                  className="rounded-full border border-muted-foreground/20 px-2.5 py-1 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  className="rounded-full border border-border bg-card/70 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/40 hover:text-foreground"
                 >
                   {s}
                 </button>
@@ -424,16 +426,16 @@ export function Research() {
           </div>
         )}
 
-        {/* Running state */}
+        {/* Running state — the real NexusCore in its thinking state */}
         {running && (
-          <div className="mx-auto mb-6 max-w-3xl rounded-2xl border border-primary/30 bg-primary/5 p-4">
-            <p className="flex items-center gap-2 text-sm text-foreground">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              {stageLabel}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Real stages from the backend — no simulated progress. Sources are found live, then synthesized with citations.
-            </p>
+          <div className="surface-glow mx-auto mb-6 flex max-w-3xl items-center gap-4 rounded-2xl border border-primary/30 bg-card/70 p-4 backdrop-blur-md">
+            <NexusCore size={44} state="thinking" active />
+            <div>
+              <p className="text-sm font-medium text-foreground">{stageLabel}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Real stages from the backend — no simulated progress. Sources are found live, then synthesized with citations.
+              </p>
+            </div>
           </div>
         )}
 

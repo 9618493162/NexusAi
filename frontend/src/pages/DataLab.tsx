@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Database,
@@ -519,8 +519,8 @@ export function DataLab() {
           {/* Market dataset — real Massive.com data, analyzed like a file */}
           <div className="w-full max-w-2xl">
             <div className="card-surface rounded-2xl p-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-500">
+              <div className="surface-glow flex items-center gap-3 rounded-xl">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500/25 via-teal-500/10 to-transparent text-teal-500 ring-1 ring-teal-500/20">
                   <TrendingUp className="h-4 w-4" />
                 </span>
                 <input
@@ -536,7 +536,7 @@ export function DataLab() {
                 <button
                   onClick={() => void loadMarket(marketTicker)}
                   disabled={!marketTicker.trim() || marketLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-teal-600 via-teal-600/95 to-teal-500/90 px-3.5 py-2 text-sm font-medium text-white shadow-glow-primary transition-all hover:opacity-90 disabled:opacity-50"
                 >
                   {marketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
                   Load market data
@@ -548,7 +548,7 @@ export function DataLab() {
                   <button
                     key={t}
                     onClick={() => void loadMarket(t)}
-                    className="rounded-full border border-muted-foreground/20 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:border-teal-500/50 hover:text-foreground"
+                    className="rounded-full border border-border bg-card/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:border-teal-500/50 hover:text-foreground"
                   >
                     {t}
                   </button>
@@ -661,16 +661,24 @@ export function DataLab() {
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {[
-                  { label: "Rows", value: fmtNum(activeOverview.rows) },
-                  { label: "Columns", value: String(activeOverview.columns) },
-                  { label: "Missing cells", value: fmtNum(activeOverview.missingCells) },
-                  { label: "Duplicate rows", value: fmtNum(activeOverview.duplicateRows) },
-                  { label: "Preview rows", value: fmtNum(activeOverview.preview.length) },
-                  { label: isMarket ? "Records" : "Size", value: fmtNum(activeOverview.rows) },
+                  { label: "Rows", value: fmtNum(activeOverview.rows), glow: "hsl(var(--primary)/0.14)" },
+                  { label: "Columns", value: String(activeOverview.columns), glow: "hsl(262 83% 66% / 0.14)" },
+                  { label: "Missing cells", value: fmtNum(activeOverview.missingCells), glow: "hsl(38 92% 58% / 0.14)" },
+                  { label: "Duplicate rows", value: fmtNum(activeOverview.duplicateRows), glow: "hsl(350 89% 60% / 0.14)" },
+                  { label: "Preview rows", value: fmtNum(activeOverview.preview.length), glow: "hsl(162 88% 56% / 0.14)" },
+                  { label: isMarket ? "Records" : "Size", value: fmtNum(activeOverview.rows), glow: "hsl(199 89% 55% / 0.14)" },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-xl bg-muted/40 px-3 py-3">
-                    <div className="text-xl font-bold">{s.value}</div>
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
+                  <div
+                    key={s.label}
+                    className="card-surface relative overflow-hidden rounded-xl px-3 py-3"
+                  >
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,var(--glow),transparent)]"
+                      style={{ "--glow": s.glow } as CSSProperties}
+                    />
+                    <div className="relative text-xl font-bold">{s.value}</div>
+                    <div className="relative text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -703,7 +711,7 @@ export function DataLab() {
                           setPage(0);
                         }}
                         placeholder="Filter rows…"
-                        className="h-8 w-44 rounded-lg border bg-background pl-8 pr-2 text-xs outline-none focus:border-primary/50"
+                        className="surface-glow h-8 w-44 rounded-lg border border-border bg-card/80 pl-8 pr-2 text-xs outline-none backdrop-blur-sm transition-colors focus:border-primary/50"
                       />
                     </div>
                   </div>
@@ -780,7 +788,7 @@ export function DataLab() {
                   <h3 className="mb-3 text-sm font-semibold">Columns</h3>
                   <div className="space-y-2">
                     {activeOverview.columnsInfo.map((c) => (
-                      <div key={c.name} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-xs">
+                      <div key={c.name} className="card-surface flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-3 py-2 text-xs">
                         <span className="font-medium">{c.name}</span>
                         <span className={cn("rounded px-1.5 py-0.5 text-[10px] uppercase", c.type === "number" ? "bg-primary/10 text-primary" : c.type === "date" ? "bg-amber-500/10 text-amber-500" : "bg-muted text-muted-foreground")}>
                           {c.type}
@@ -813,7 +821,7 @@ export function DataLab() {
                       onChange={(e) => setQuestion(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && submitQuestion()}
                       placeholder="e.g. Which region had the highest revenue?"
-                      className="h-9 flex-1 rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary/50"
+                      className="surface-glow h-9 flex-1 rounded-lg border border-border bg-card/80 px-3 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/50"
                     />
                     <button
                       onClick={submitQuestion}
@@ -831,7 +839,7 @@ export function DataLab() {
                         key={s}
                         onClick={() => ask(s)}
                         disabled={aiStage === "loading" || aiStage === "analyzing"}
-                        className="rounded-full border border-muted-foreground/20 px-2.5 py-1 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        className="rounded-full border border-border bg-card/70 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/40 hover:text-foreground"
                       >
                         {s}
                       </button>
@@ -839,7 +847,7 @@ export function DataLab() {
                   </div>
 
                   {(aiStage === "loading" || aiStage === "analyzing" || aiStage === "streaming" || answer || askError) && (
-                    <div className="mt-4 rounded-xl bg-muted/30 p-3">
+                    <div className="surface-glow mt-4 rounded-xl border border-border bg-card/70 p-3 backdrop-blur-md">
                       {aiStage === "loading" && (
                         <p className="text-xs text-muted-foreground">
                           <Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" /> Reading the dataset…
@@ -879,7 +887,7 @@ export function DataLab() {
                           <button
                             key={i}
                             onClick={() => ask(h.q)}
-                            className="block w-full truncate rounded-lg bg-muted/30 px-3 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
+                            className="card-surface block w-full truncate rounded-lg px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
                           >
                             {h.q}
                           </button>

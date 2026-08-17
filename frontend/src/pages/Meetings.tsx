@@ -122,13 +122,13 @@ export function Meetings() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="Meeting title, e.g. Sprint planning"
               aria-label="Meeting title"
-              className="h-11 w-full rounded-xl border border-border bg-muted/40 px-3.5 text-sm outline-none transition-colors focus:border-primary/60"
+              className="surface-glow h-11 w-full rounded-xl border border-border bg-card/80 px-3.5 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/60"
             />
             <select
               value={form.sourceLang}
               onChange={(e) => setForm({ ...form, sourceLang: e.target.value })}
               aria-label="Speech language"
-              className="h-11 rounded-xl border border-border bg-muted/40 px-3 text-sm outline-none transition-colors focus:border-primary/60"
+              className="surface-glow h-11 rounded-xl border border-border bg-card/80 px-3 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/60"
             >
               {languages.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
             </select>
@@ -136,14 +136,14 @@ export function Meetings() {
               value={form.targetLang}
               onChange={(e) => setForm({ ...form, targetLang: e.target.value })}
               aria-label="Translate to language"
-              className="h-11 rounded-xl border border-border bg-muted/40 px-3 text-sm outline-none transition-colors focus:border-primary/60"
+              className="surface-glow h-11 rounded-xl border border-border bg-card/80 px-3 text-sm outline-none backdrop-blur-sm transition-colors focus:border-primary/60"
             >
               {languages.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
             </select>
             <button
               type="submit"
               disabled={!form.title.trim() || starting}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-40"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-5 text-sm font-medium text-primary-foreground shadow-glow-primary transition-all hover:opacity-90 disabled:opacity-40"
             >
               {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
               Start meeting
@@ -180,10 +180,11 @@ export function Meetings() {
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
             </div>
           ) : (meetings || []).length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40 px-6 py-14 text-center">
-              <Mic className="mb-3 h-8 w-8 text-muted-foreground/60" strokeWidth={1.6} />
-              <p className="text-sm font-medium">No meetings yet</p>
-              <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+            <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-card/40 px-6 py-14 text-center backdrop-blur-sm">
+              <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(60%_100%_at_50%_0%,hsl(var(--primary)/0.08),transparent)]" />
+              <Mic className="relative mb-3 h-8 w-8 text-muted-foreground/60" strokeWidth={1.6} />
+              <p className="relative text-sm font-medium">No meetings yet</p>
+              <p className="relative mt-1 max-w-sm text-xs text-muted-foreground">
                 Start your first meeting above — speak, and NexusAI transcribes, translates and summarizes it for you.
               </p>
             </div>
@@ -256,7 +257,7 @@ export function Meetings() {
         </div>
 
         {/* ── Honesty note ──────────────────────────────────────────────── */}
-        <div className="mt-10 rounded-2xl border border-border/70 bg-card/50 p-5">
+        <div className="surface-glow mt-10 rounded-2xl border border-border/70 bg-card/50 p-5 backdrop-blur-md">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
             <Sparkles className="h-4 w-4 text-primary" /> What's real here
           </h2>
