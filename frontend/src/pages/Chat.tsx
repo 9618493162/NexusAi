@@ -763,8 +763,6 @@ export function Chat() {
     }
   };
 
-  const autoModel = model === "auto" ? (task ? recommendModel(input || " ", task) : "auto") : "";
-
   return (
     <div className="flex h-full">
       {/* Conversation rail — real conversations: collapsible rail on desktop,
@@ -993,10 +991,9 @@ export function Chat() {
             </div>
           )}
 
-          {/* Controls row */}
-          <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="relative">
-              <div aria-hidden className="pointer-events-none absolute -inset-1 rounded-full bg-primary/15 blur-lg" />
+          {/* Controls row — compact: model picker + icon toggles, single line */}
+          <div className="mb-1.5 flex items-center gap-1.5 overflow-x-auto">
+            <div className="relative shrink-0">
               <Select
                 value={model}
                 onChange={(v) => {
@@ -1011,44 +1008,44 @@ export function Chat() {
                 searchable
                 ariaLabel="Model"
                 leadingIcon={
-                  <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/25 via-primary/10 to-transparent ring-1 ring-primary/25">
-                    <Sparkles className="h-3 w-3 text-primary" />
-                  </span>
+                  <Sparkles className="h-3 w-3 shrink-0 text-primary" />
                 }
               />
             </div>
 
+            <div className="mx-0.5 h-4 w-px shrink-0 bg-border/60" />
+
             <button
               type="button"
               onClick={toggleSearch}
-              title={searchEnabled ? "Web search is on — replies use live results" : "Search the web — replies use live results"}
+              title={searchEnabled ? "Web search ON — replies use live results" : "Web search off"}
               aria-label="Search the web for replies"
               aria-pressed={searchEnabled}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "flex h-7 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-medium transition-colors",
                 searchEnabled
                   ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
               <Search className="h-3.5 w-3.5" />
-              Web search
+              <span className="hidden sm:inline">Search</span>
             </button>
 
             <button
               type="button"
               onClick={toggleSpeak}
-              title="Speak replies aloud in the selected language"
+              title="Speak replies aloud"
               aria-label="Speak replies"
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "flex h-7 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-medium transition-colors",
                 speakEnabled
                   ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
               {speakEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-              Speak replies
+              <span className="hidden sm:inline">Speak</span>
             </button>
 
             {languages.length > 0 && (
@@ -1063,58 +1060,44 @@ export function Chat() {
             )}
 
             {voiceSupported && languages.length > 0 && (
-              <div title={`Dictate in ${languageName(languages, dictateLang)}`}>
-                <Select
-                  value={dictateLang}
-                  onChange={changeDictateLang}
-                  options={languages.map((l) => ({ value: l.code, label: l.name }))}
-                  searchable
-                  ariaLabel="Dictate in"
-                  leadingIcon={<Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                />
-              </div>
+              <Select
+                value={dictateLang}
+                onChange={changeDictateLang}
+                options={languages.map((l) => ({ value: l.code, label: l.name }))}
+                searchable
+                ariaLabel="Dictate language"
+                leadingIcon={<Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+              />
             )}
 
             {voiceSupported && (
               <button
                 type="button"
                 onClick={toggleTranslateDictation}
-                title="Translate dictated speech into another language before sending"
+                title="Translate dictated speech before sending"
                 aria-label="Translate dictation"
                 aria-pressed={translateDictation}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  "flex h-7 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-medium transition-colors",
                   translateDictation
                     ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
                 <Languages className="h-3.5 w-3.5" />
-                Translate dictation
+                <span className="hidden sm:inline">Translate</span>
               </button>
             )}
 
             {translateDictation && languages.length > 0 && (
-              <div title={`Dictate to ${languageName(languages, dictateTo)}`}>
-                <Select
-                  value={dictateTo}
-                  onChange={changeDictateTo}
-                  options={languages.map((l) => ({ value: l.code, label: l.name }))}
-                  searchable
-                  ariaLabel="Dictate to"
-                  leadingIcon={<Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                />
-              </div>
-            )}
-
-            {model === "auto" && (
-              <span className="hidden items-center gap-1 text-xs text-muted-foreground md:inline-flex">
-                {task ? (
-                  <>Auto → <span className="font-medium text-primary">{autoModel}</span> for this task</>
-                ) : (
-                  <>Auto → <span className="font-medium text-primary">your default provider</span></>
-                )}
-              </span>
+              <Select
+                value={dictateTo}
+                onChange={changeDictateTo}
+                options={languages.map((l) => ({ value: l.code, label: l.name }))}
+                searchable
+                ariaLabel="Dictate to language"
+                leadingIcon={<Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+              />
             )}
           </div>
 

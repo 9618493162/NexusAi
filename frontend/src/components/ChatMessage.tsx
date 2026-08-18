@@ -278,7 +278,7 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
           </div>
         </div>
 
-        <div className={cn("flex min-w-0 flex-col", isUser ? "items-end" : "w-full items-start")}>
+        <div className={cn("flex min-w-0 w-full flex-col", isUser ? "items-end" : "items-start")}>
           {/* Editorial body: user replies are compact glowing chips; assistant
               replies sit on a soft ambient surface — readable, never a heavy card. */}
           <div
