@@ -259,7 +259,7 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
     >
-      <div className={cn("flex w-full items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn("flex items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
         {/* Avatar — glowing for the AI, clean gradient for the user */}
         <div className="relative shrink-0">
           {!isUser && (
@@ -278,7 +278,7 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
           </div>
         </div>
 
-        <div className={cn("flex min-w-0 w-full flex-col", isUser ? "items-end" : "items-start")}>
+        <div className={cn("flex min-w-0 flex-1 flex-col", isUser ? "items-end" : "items-start")}>
           {/* Editorial body: user replies are compact glowing chips; assistant
               replies sit on a soft ambient surface — readable, never a heavy card. */}
           <div
