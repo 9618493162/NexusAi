@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Cpu, Search, Star, Check, AlertTriangle, Circle, RefreshCw, Sparkles, MessageSquare, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Cpu, Search, Star, AlertTriangle, Circle, RefreshCw, Sparkles, MessageSquare, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
 import { providersService, CatalogModel, ProviderStatus, NvidiaHealth } from "@/services/providers.service";
 import { getAIPreferences, setAIPreferences } from "@/utils/aiPreferences";
-import { PageHeader } from "@/components/ui/page-header";
+import { NexusCore } from "@/components/ui/nexus-core";
+import { SpatialEnvironment } from "@/components/ui/spatial-environment";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/utils/cn";
@@ -74,7 +75,6 @@ export function ModelManager() {
   const [query, setQuery] = useState("");
   const [capFilter, setCapFilter] = useState<string>("All");
   const [defaultModel, setDefaultModel] = useState<string>(() => getAIPreferences().defaultModel);
-  const [saved, setSaved] = useState(false);
   const [nvHealth, setNvHealth] = useState<NvidiaHealth | null>(null);
   const [nvChecking, setNvChecking] = useState(false);
 
@@ -127,29 +127,45 @@ export function ModelManager() {
   const setDefault = (id: string) => {
     setAIPreferences({ defaultModel: id });
     setDefaultModel(id);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1600);
   };
 
   const total = catalog ? catalog.models.chat.length + catalog.models.image.length + catalog.models.video.length : 0;
+  const reduced = useReducedMotion();
+  const transition = reduced ? { duration: 0 } : { duration: 0.25, ease: "easeOut" as const };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
-      <PageHeader
-        icon={Cpu}
-        title="AI Model & Provider Manager"
-        description="Every model NexusAI can use right now — pulled from the backend, nothing invented."
-        actions={
-          saved ? (
-            <Badge variant="success" className="shrink-0">
-              <Check className="h-3 w-3" /> Default saved
-            </Badge>
-          ) : undefined
-        }
-      />
+    <div className="relative min-h-full">
+      <SpatialEnvironment />
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+        {/* ── Hero: Model Core ─────────────────────────────────── */}
+        <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={transition}>
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <Cpu className="h-3.5 w-3.5 text-primary" /> NexusAI
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+                AI <span className="text-gradient">Model Hub</span>
+              </h1>
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
+                Every model NexusAI can use right now — pulled from the backend, nothing invented.
+                Provider status comes from real server-side health checks.
+              </p>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={reduced ? { duration: 0 } : { delay: 0.15, duration: 0.45, ease: "easeOut" }}
+            className="relative hidden lg:block"
+          >
+            <NexusCore size={230} state={loading ? "thinking" : nvHealth && nvHealth.chat.some(m => m.status === "ok") ? "success" : "idle"} />
+          </motion.div>
+        </div>
 
       {error && (
-        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-6 flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
           <button onClick={() => window.location.reload()} className="ml-auto text-xs font-medium underline-offset-2 hover:underline">Retry</button>
@@ -175,7 +191,7 @@ export function ModelManager() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3 shadow-card"
+                className="card-surface flex flex-col gap-1.5 rounded-xl p-3.5"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-semibold">{p.name}</p>
@@ -215,7 +231,7 @@ export function ModelManager() {
             {[...nvHealth.chat.map((m) => ({ ...m, kind: "chat" as const })), ...nvHealth.image.map((m) => ({ ...m, kind: "image" as const }))].map((m) => {
               const h = HEALTH_STYLES[m.status] || HEALTH_STYLES.error;
               return (
-                <div key={`${m.kind}-${m.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-card">
+                <div key={`${m.kind}-${m.id}`} className="card-surface flex items-center gap-3 rounded-xl p-3.5">
                   <span className={cn("h-2 w-2 shrink-0 rounded-full", h.dot)} aria-hidden />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -365,7 +381,7 @@ export function ModelManager() {
             );
           })}
 
-          <div className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground shadow-card">
+          <div className="card-surface flex items-start gap-2.5 rounded-xl p-4 text-xs text-muted-foreground">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             <p>
               The <span className="font-medium text-foreground">default</span> applies to the <span className="font-medium text-foreground">Chat</span> and{" "}
@@ -375,6 +391,7 @@ export function ModelManager() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

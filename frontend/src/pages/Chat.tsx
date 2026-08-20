@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, Sparkles, Loader2, X, ArrowLeft, Plus, Mic, Volume2, VolumeX, Globe, Search, Languages, Brain, Bookmark, Check, CornerDownLeft, MessageSquare } from "lucide-react";
+import { Send, Square, Paperclip, Sparkles, Loader2, X, ArrowLeft, Plus, Mic, Volume2, VolumeX, Globe, Search, Languages, Brain, Bookmark, Check, CornerDownLeft, MessageSquare } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { PromptPicker } from "@/components/ui/prompt-picker";
 import { Button } from "@/components/ui/button";
@@ -96,6 +96,8 @@ export function Chat() {
     return () => window.removeEventListener("focus", onFocus);
   }, [authUser?.id]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Conversation rail: collapse preference + a refresh signal bumped when
@@ -136,6 +138,7 @@ export function Chat() {
   const dictationBaseRef = useRef("");
   // Voice callbacks outlive renders, so send through a ref to the latest sendMessage.
   const sendMessageRef = useRef<(raw: string) => Promise<void>>(async () => {});
+  const abortControllerRef = useRef<AbortController | null>(null);
   // Latest toggleVoice for the keyboard shortcut (kept fresh across renders).
   const toggleVoiceRef = useRef<() => void>(() => {});
   // Dictation translation: when on, the spoken text is translated into
@@ -450,8 +453,20 @@ export function Chat() {
     }
   }, [task, prefilled, id]);
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  useEffect(() => { scrollToBottom(); }, [messages]);
+  const scrollToBottom = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  };
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+  };
+  useEffect(() => {
+    if (isNearBottomRef.current) scrollToBottom();
+  }, [messages]);
 
   // Keyboard shortcuts: Cmd/Ctrl+N starts a new chat, Cmd/Ctrl+Shift+M toggles
   // live dictation (works from anywhere on the page, not just the composer),
@@ -524,7 +539,15 @@ export function Chat() {
 
   // Send a chat message — used by the composer AND by voice dictation (which
   // auto-sends so speaking gets an immediate reply).
+  const stopGeneration = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setLoading(false);
+  };
   const sendMessage = async (raw: string) => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     const message = raw.trim();
     if (!message || loading) return;
     const userMessage: Message = { id: Date.now().toString(), content: message, role: "user", createdAt: new Date().toISOString() };
@@ -564,7 +587,7 @@ export function Chat() {
       setMessages((prev) => [...prev, { id: assistantId, content: "", role: "assistant", createdAt: new Date().toISOString() }]);
       while (reader) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done || controller.signal.aborted) break;
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n\n");
         for (const line of lines) {
@@ -604,6 +627,7 @@ export function Chat() {
       }
     } catch (err) { console.error("Chat error:", err); setError("Chat failed. Check your API keys."); }
     finally {
+      abortControllerRef.current = null;
       setLoading(false);
       setAssistantThinking(false);
       if (speakEnabled && assistantContent) {
@@ -759,6 +783,7 @@ export function Chat() {
       console.error("File upload error:", err);
       setError(typeof msg === "string" ? msg : "File upload failed");
     } finally {
+      abortControllerRef.current = null;
       setUploading(false);
     }
   };
@@ -779,7 +804,7 @@ export function Chat() {
       {/* Messages + composer */}
       <div className="flex h-full min-w-0 flex-1 flex-col">
       {/* Messages */}
-      <div className="relative flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="relative min-h-0 flex-1 overflow-y-auto">
         {/* Ambient lighting — soft depth behind the conversation */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,hsl(var(--primary)/0.09),transparent)]" />
         <div className={cn("relative mx-auto w-full px-4 sm:px-6", messages.length === 0 ? "max-w-3xl" : "max-w-3xl py-6")}>
@@ -1202,9 +1227,15 @@ export function Chat() {
                 rows={1}
                 className="max-h-48 min-h-[44px] w-full resize-none bg-transparent px-2 py-2.5 text-[15px] leading-relaxed text-foreground caret-primary outline-none placeholder:text-muted-foreground"
               />
-              <Button type="submit" size="icon" disabled={!input.trim() || loading} className="h-9 w-9 shrink-0 rounded-xl" aria-label="Send message">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {loading ? (
+                <button type="button" onClick={stopGeneration} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive transition-colors hover:bg-destructive/25" aria-label="Stop generation">
+                  <Square className="h-4 w-4" fill="currentColor" />
+                </button>
+              ) : (
+              <Button type="submit" size="icon" disabled={!input.trim()} className="h-9 w-9 shrink-0 rounded-xl" aria-label="Send message">
+                <Send className="h-4 w-4" />
               </Button>
+              )}
             </div>
           </form>
               <p className="mt-2.5 text-center text-[11px] text-muted-foreground">

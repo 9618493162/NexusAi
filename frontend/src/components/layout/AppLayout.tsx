@@ -118,7 +118,7 @@ export function AppLayout() {
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMobile={() => setMobileOpen(true)} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="relative flex-1 overflow-y-auto">
-          <div className="relative">
+          <div className="relative h-full">
             <PageTransition>
               <Outlet />
             </PageTransition>
