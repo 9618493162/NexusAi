@@ -865,7 +865,7 @@ export function Chat() {
                   <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent text-primary ring-1 ring-primary/25">
                     <Sparkles className="h-7 w-7" strokeWidth={1.8} />
                   </div>
-                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                  <h1 className="display-tight text-3xl font-bold tracking-tight sm:text-4xl">
                     What can I help with?
                   </h1>
                   <p className="mt-2 text-sm text-muted-foreground sm:text-base">

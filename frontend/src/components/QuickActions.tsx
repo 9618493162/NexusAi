@@ -51,7 +51,7 @@ export function QuickActions() {
           onClick={() => handleClick(action)}
           whileHover={{ y: -3 }}
           whileTap={{ scale: 0.98 }}
-          className="group relative overflow-hidden rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-colors hover:border-primary/40 sm:p-5"
+          className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-4 text-left shadow-sm backdrop-blur transition-all duration-200 hover:border-primary/40 hover:shadow-float hover:-translate-y-0.5 sm:p-5"
         >
           {/* Soft gradient wash on hover */}
           <div
