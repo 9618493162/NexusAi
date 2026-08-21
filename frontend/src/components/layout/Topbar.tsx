@@ -103,7 +103,7 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
   const title = TITLES.find((t) => t.match(location.pathname))?.title ?? "NexusAI";
 
   return (
-    <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border/70 bg-background/75 px-4 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04)] sm:px-6">
+    <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border/50 bg-background/60 px-4 backdrop-blur-2xl backdrop-saturate-150 sm:px-6">
       <button
         onClick={onOpenMobile}
         aria-label="Open navigation"
@@ -123,7 +123,7 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
           onClick={onOpenPalette}
           aria-label="Search (Ctrl+K)"
           title="Search (Ctrl+K)"
-          className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground shadow-sm transition-[transform,background-color,border-color,color] duration-200 ease-fluid hover:border-primary/30 hover:bg-accent hover:text-foreground active:scale-[0.98] sm:w-56"
+          className="flex h-9 w-full items-center gap-2 rounded-xl border border-border/70 bg-card/60 px-3 text-sm text-muted-foreground shadow-sm backdrop-blur transition-all duration-200 hover:border-primary/30 hover:bg-accent/60 hover:text-foreground sm:w-56"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="hidden flex-1 text-left sm:block">Search…</span>
@@ -141,7 +141,7 @@ export function Topbar({ onOpenMobile, onOpenPalette }: TopbarProps) {
             aria-label="Account menu"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary/80 to-indigo-500 text-sm font-semibold text-primary-foreground ring-1 ring-border shadow-sm transition-[transform,box-shadow] duration-200 ease-fluid hover:scale-105 hover:shadow-md active:scale-95"
+            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary/80 to-indigo-500 text-sm font-semibold text-primary-foreground ring-1 ring-primary/30 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md hover:ring-primary/50 active:scale-95"
           >
             <AvatarImage
               src={user?.avatar}

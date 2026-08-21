@@ -105,7 +105,7 @@ export function Landing() {
   return (
     <div className="min-h-screen bg-background">
       {/* Glass top nav */}
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-2xl backdrop-saturate-150">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5" aria-label="NexusAI home">
             <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-indigo-500 text-primary-foreground shadow-sm">
@@ -129,7 +129,7 @@ export function Landing() {
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden py-16 lg:py-28">
+      <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
           <div className="absolute -top-24 left-1/2 h-80 w-[50rem] -translate-x-1/2 rounded-full bg-primary/12 blur-3xl" />
           <div className="absolute bottom-0 right-10 h-64 w-64 rounded-full bg-indigo-500/8 blur-3xl" />
@@ -146,7 +146,7 @@ export function Landing() {
             className="relative mx-auto mb-10 h-52 w-52"
             aria-hidden="true"
           >
-            <NexusCore size={168} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+            <NexusCore size={180} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
             {!reduced &&
               ORBIT_NODES.map((node) => (
                 <motion.div
@@ -168,10 +168,10 @@ export function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/8 px-4 py-1.5 text-sm font-medium text-primary">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-5 py-2 text-xs font-semibold uppercase tracking-widest text-primary">
               <Sparkles className="h-4 w-4" /> Your all-in-one AI workspace
             </div>
-            <h1 className="display-tight text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="display-tight text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
               Meet <span className="text-aurora">NexusAI</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground text-balance sm:text-xl">
@@ -321,7 +321,7 @@ export function Landing() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="relative overflow-hidden py-16 lg:py-24">
+      <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="pointer-events-none absolute inset-0" aria-hidden="true">
           <div className="absolute left-1/2 top-1/2 h-72 w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
         </div>
@@ -333,7 +333,7 @@ export function Landing() {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <NexusCore size={64} className="mx-auto mb-6" />
-            <h2 className="display-tight text-2xl font-bold tracking-tight sm:text-3xl">Ready to create something?</h2>
+            <h2 className="display-tight text-3xl font-bold tracking-tight sm:text-4xl">Your AI workspace<br className="hidden sm:block" /> starts here.</h2>
             <p className="mx-auto mt-2 max-w-md text-muted-foreground">Join NexusAI and put the best AI models to work for you — free.</p>
             <Link to="/register" className="mt-7 inline-block">
               <Button size="lg" className="gap-2 glow-primary">Create your account <ArrowRight className="h-4 w-4" /></Button>
@@ -342,7 +342,7 @@ export function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
+      <footer className="border-t border-border/60 py-10 text-center text-xs text-muted-foreground">
         <span className="font-semibold text-foreground">NexusAI</span> — an intelligent AI workspace.
         <span className="mx-2 text-border">·</span>
         <Link to="/login" className="transition-colors hover:text-foreground">Sign in</Link>

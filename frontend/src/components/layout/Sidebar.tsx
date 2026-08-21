@@ -80,7 +80,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
   const content = (
     <>
       {/* Brand */}
-      <div className={cn("flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-4", collapsed && "justify-center px-2")}>
+      <div className={cn("flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border/60 px-4", collapsed && "justify-center px-2")}>
         <Link to="/dashboard" className="flex min-w-0 items-center gap-2.5" aria-label="NexusAI home">
           <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-indigo-500 text-primary-foreground shadow-sm">
             <Sparkles className="h-4.5 w-4.5" strokeWidth={2} />
@@ -128,11 +128,11 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
                     onClick={onCloseMobile}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                       collapsed && "justify-center px-0",
                       active
-                        ? "bg-primary/10 text-primary"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                        ? "bg-primary/12 text-primary shadow-sm shadow-primary/10"
+                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-foreground"
                     )}
                   >
                     {active && (
@@ -160,7 +160,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 space-y-2 border-t border-sidebar-border p-3">
+      <div className="shrink-0 space-y-2 border-t border-sidebar-border/60 p-3">
         {!collapsed && (
           <div className="mb-1 flex items-center gap-3 rounded-xl px-2 py-2">
             <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-indigo-500 text-sm font-semibold text-primary-foreground">
@@ -242,7 +242,7 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
             initial={{ x: reducedMotion ? 0 : -280 }}
             animate={{ x: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 36 }}
-            className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-sidebar-border bg-sidebar lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-sidebar-border/60 bg-sidebar/98 backdrop-blur-xl lg:hidden"
             role="dialog"
             aria-label="Navigation"
           >
