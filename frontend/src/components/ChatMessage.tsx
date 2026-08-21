@@ -259,7 +259,7 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
     >
-      <div className={cn("flex items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn("flex w-full items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
         {/* Avatar — glowing for the AI, clean gradient for the user */}
         <div className="relative shrink-0">
           {!isUser && (
