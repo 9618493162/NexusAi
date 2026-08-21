@@ -1,10 +1,11 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight, Sparkles, Zap, Shield, Bot, Mic, FileText, MessageSquare, Cpu,
   FolderKanban, Workflow, LayoutDashboard, Image as ImageIcon, Video,
   Database, Compass, Brain, History as HistoryIcon, Star, BarChart3,
-  Presentation, TrendingUp, Search, KeyRound, Users, ChevronRight,
+  Presentation, TrendingUp, Search, KeyRound, Users, ChevronRight, Key, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NexusCore } from "@/components/ui/nexus-core";
@@ -101,12 +102,19 @@ const PROVIDERS = ["Groq", "Google Gemini", "Mistral", "OpenRouter", "NVIDIA", "
 
 export function Landing() {
   const reduced = useReducedMotion();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Glass top nav */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/60 backdrop-blur-2xl backdrop-saturate-150">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      {/* Glass top nav — compact on scroll */}
+      <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${scrolled ? "border-border/60 bg-background/80 shadow-popover backdrop-blur-2xl backdrop-saturate-150" : "border-transparent bg-background/60 backdrop-blur-xl backdrop-saturate-150"}`}>
+        <div className={`mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 transition-all duration-300 ${scrolled ? "h-14" : "h-16"}`}>
           <Link to="/" className="flex items-center gap-2.5" aria-label="NexusAI home">
             <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-indigo-500 text-primary-foreground shadow-sm">
               <Sparkles className="h-4 w-4" strokeWidth={2} />
@@ -121,7 +129,7 @@ export function Landing() {
             </Link>
             <Link to="/register">
               <Button size="sm" className="gap-1.5">
-                Get started <ArrowRight className="h-3.5 w-3.5" />
+                Get Started <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </div>
@@ -197,6 +205,77 @@ export function Landing() {
                     {p}
                   </span>
                 ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* ── Chat Preview Mockup ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+            className="mx-auto mt-16 max-w-3xl"
+          >
+            <div className="relative rounded-2xl border border-border/50 bg-card/70 shadow-2xl backdrop-blur-xl overflow-hidden">
+              {/* Window chrome */}
+              <div className="flex items-center gap-2 border-b border-border/40 bg-card/90 px-4 py-3">
+                <div className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-border/60" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-border/60" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-border/60" />
+                </div>
+                <span className="ml-2 text-[11px] font-medium text-muted-foreground/60">NexusAI Chat</span>
+              </div>
+              {/* Mock conversation */}
+              <div className="space-y-4 p-5">
+                {/* User message */}
+                <div className="flex justify-end">
+                  <div className="max-w-[70%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+                    Explain the difference between REST and GraphQL APIs
+                  </div>
+                </div>
+                {/* AI response */}
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-muted/60 px-4 py-3 text-sm leading-relaxed text-foreground/90">
+                    <p className="mb-2"><strong>REST</strong> uses fixed endpoints (GET, POST, PUT, DELETE) where each URL maps to a resource. The server decides what data to return.</p>
+                    <p><strong>GraphQL</strong> uses a single endpoint where the client specifies exactly what data it needs using a query language.</p>
+                  </div>
+                </div>
+                {/* Code block in AI response */}
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] overflow-hidden rounded-2xl rounded-bl-md bg-muted/60 text-sm">
+                    <div className="flex items-center justify-between border-b border-border/30 bg-card/50 px-4 py-1.5">
+                      <span className="text-[10px] font-medium text-muted-foreground">REST</span>
+                      <span className="text-[10px] text-muted-foreground/60">vs</span>
+                      <span className="text-[10px] font-medium text-muted-foreground">GraphQL</span>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-border/30">
+                      <div className="px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+                        <code className="text-primary/80">GET /api/users/123</code>
+                        <p className="mt-1">Fixed response shape</p>
+                      </div>
+                      <div className="px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+                        <code className="text-primary/80">query {'{'} user(id: 123) {'}'}</code>
+                        <p className="mt-1">Client chooses fields</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Composer bar */}
+              <div className="border-t border-border/40 bg-card/90 px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-4 w-4 text-primary/50" />
+                  </div>
+                  <div className="flex-1 rounded-xl border border-border/50 bg-background/50 px-4 py-2 text-sm text-muted-foreground/50 backdrop-blur">
+                    Ask NexusAI anything...
+                  </div>
+                  <Button size="sm" className="gap-1.5 opacity-40" tabIndex={-1}>
+                    Send <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -316,6 +395,76 @@ export function Landing() {
                 <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{feature.description}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── BYOK / Security section ── */}
+      <section className="border-t border-border bg-card/40 py-16 lg:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Bring Your Own AI</p>
+              <h2 className="display-tight mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+                Your keys. Your models. <span className="text-gradient">Your control.</span>
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                Connect your own API keys from Groq, Gemini, Mistral, OpenRouter, NVIDIA and more. Your keys are encrypted server-side with AES-256 and never exposed to the browser.
+              </p>
+              <div className="mt-6 space-y-3">
+                {[
+                  { icon: Key, text: "Add any supported provider key" },
+                  { icon: Lock, text: "AES-256 encrypted, server-side only" },
+                  { icon: Shield, text: "Test connections before using" },
+                ].map((item) => (
+                  <div key={item.text} className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <item.icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm text-foreground/80">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+              <Link to="/register" className="mt-7 inline-block">
+                <Button size="lg" className="gap-2">Get started <ArrowRight className="h-4 w-4" /></Button>
+              </Link>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.45, delay: 0.1, ease: "easeOut" }}
+              className="relative"
+            >
+              <div className="rounded-2xl border border-border/50 bg-card/70 p-6 shadow-xl backdrop-blur-xl">
+                <div className="space-y-3">
+                  {[{ name: "Groq", status: "Connected", color: "bg-success" }, { name: "Gemini", status: "Connected", color: "bg-success" }, { name: "Mistral", status: "Server key", color: "bg-info" }, { name: "OpenRouter", status: "Add key", color: "bg-muted-foreground/40" }].map((p) => (
+                    <div key={p.name} className="flex items-center justify-between rounded-xl border border-border/40 bg-background/50 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {p.name[0]}
+                        </span>
+                        <span className="text-sm font-medium">{p.name}</span>
+                      </div>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className={`h-2 w-2 rounded-full ${p.color}`} />
+                        {p.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
+                  <Shield className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-medium text-primary">All keys encrypted with AES-256</span>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
