@@ -257,9 +257,9 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
+      className={cn("group", isUser ? "flex justify-end" : "flex justify-start")}
     >
-      <div className={cn("flex w-full items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn("flex items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
         {/* Avatar — glowing for the AI, clean gradient for the user */}
         <div className="relative shrink-0">
           {!isUser && (
@@ -278,14 +278,14 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
           </div>
         </div>
 
-        <div className={cn("flex min-w-0 flex-1 flex-col", isUser ? "items-end" : "items-start")}>
+        <div className={cn("flex min-w-0 flex-col", isUser ? "max-w-[88%] items-end sm:max-w-[82%]" : "flex-1 items-start")}>
           {/* Editorial body: user replies are compact glowing chips; assistant
               replies sit on a soft ambient surface — readable, never a heavy card. */}
           <div
             className={cn(
               "text-[15px] leading-relaxed",
               isUser
-                ? "max-w-[88%] rounded-2xl rounded-br-md bg-gradient-to-br from-primary to-primary-hover px-4 py-2.5 text-primary-foreground shadow-md shadow-primary/20 ring-1 ring-white/10 sm:max-w-[82%]"
+                ? "w-full rounded-2xl rounded-br-md bg-gradient-to-br from-primary to-primary-hover px-4 py-2.5 text-primary-foreground shadow-md shadow-primary/20 ring-1 ring-white/10"
                 : "w-full rounded-2xl border border-border/50 bg-card/45 px-4 py-3 backdrop-blur-[2px] sm:px-5 text-[15.5px] leading-[1.8]"
             )}
           >
