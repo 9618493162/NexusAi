@@ -22,13 +22,13 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   {
-    label: "Workspace",
+    label: "NexusAI",
     items: [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", match: (p) => p === "/dashboard" },
+      { icon: LayoutDashboard, label: "Home", path: "/dashboard", match: (p) => p === "/dashboard" },
       { icon: Sparkles, label: "Command Center", path: "/command", match: (p) => p === "/command" },
-      { icon: MessageSquare, label: "Chats", path: "/chat", match: (p) => p.startsWith("/chat") },
-      { icon: Bot, label: "Agents", path: "/agents", match: (p) => p === "/agents" },
-      { icon: Cpu, label: "AI Models", path: "/models", match: (p) => p === "/models" },
+      { icon: MessageSquare, label: "Chat", path: "/chat", match: (p) => p.startsWith("/chat") },
+      { icon: Compass, label: "Research", path: "/research", match: (p) => p.startsWith("/research") },
+      { icon: FileText, label: "Files", path: "/files", match: (p) => p === "/files" },
     ],
   },
   {
@@ -37,28 +37,28 @@ const navGroups: NavGroup[] = [
       { icon: Image, label: "Image Studio", path: "/image-studio", match: (p) => p === "/image-studio" },
       { icon: Video, label: "Video Studio", path: "/video-studio", match: (p) => p === "/video-studio" },
       { icon: Mic, label: "Voice", path: "/voice", match: (p) => p === "/voice" },
-      { icon: VideoIcon, label: "Meetings", path: "/meetings", match: (p) => p.startsWith("/meetings") },
-      { icon: WorkflowIcon, label: "Workflows", path: "/workflows", match: (p) => p.startsWith("/workflows") },
-      { icon: Database, label: "Data Lab", path: "/data-lab", match: (p) => p.startsWith("/data-lab") },
-      { icon: Compass, label: "Research", path: "/research", match: (p) => p.startsWith("/research") },
-      { icon: TrendingUp, label: "Markets", path: "/markets", match: (p) => p.startsWith("/markets") },
       { icon: DocIcon, label: "Documents", path: "/documents", match: (p) => p.startsWith("/documents") },
     ],
   },
   {
-    label: "Knowledge",
+    label: "Automate",
     items: [
-      { icon: Brain, label: "Memory", path: "/memory", match: (p) => p === "/memory" },
-      { icon: FolderKanban, label: "Projects", path: "/projects", match: (p) => p.startsWith("/projects") },
-      { icon: FileText, label: "Files", path: "/files", match: (p) => p === "/files" },
-      { icon: History, label: "History", path: "/history", match: (p) => p === "/history" },
-      { icon: Star, label: "Favorites", path: "/favorites", match: (p) => p === "/favorites" },
+      { icon: Bot, label: "Agents", path: "/agents", match: (p) => p === "/agents" },
+      { icon: WorkflowIcon, label: "Workflows", path: "/workflows", match: (p) => p.startsWith("/workflows") },
+      { icon: VideoIcon, label: "Meetings", path: "/meetings", match: (p) => p.startsWith("/meetings") },
+      { icon: Database, label: "Data Lab", path: "/data-lab", match: (p) => p.startsWith("/data-lab") },
     ],
   },
   {
-    label: "Insights",
+    label: "Manage",
     items: [
+      { icon: Brain, label: "Memory", path: "/memory", match: (p) => p === "/memory" },
+      { icon: FolderKanban, label: "Projects", path: "/projects", match: (p) => p.startsWith("/projects") },
+      { icon: TrendingUp, label: "Markets", path: "/markets", match: (p) => p.startsWith("/markets") },
       { icon: BarChart3, label: "Analytics", path: "/analytics", match: (p) => p === "/analytics" },
+      { icon: History, label: "History", path: "/history", match: (p) => p === "/history" },
+      { icon: Star, label: "Favorites", path: "/favorites", match: (p) => p === "/favorites" },
+      { icon: Cpu, label: "AI Models", path: "/models", match: (p) => p === "/models" },
     ],
   },
 ];

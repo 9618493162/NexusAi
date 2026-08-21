@@ -274,6 +274,7 @@ export function Dashboard() {
       : QUICK_ACTIONS;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const hasRecentWork = conversations.length > 0 || meetings.length > 0;
 
   const startCommand = () => {
     if (!query.trim()) { navigate("/chat"); return; }
@@ -308,7 +309,7 @@ export function Dashboard() {
             <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
               {greeting}, <span className="text-gradient">{firstName}</span>
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground sm:text-base">What are you building today?</p>
+            <p className="mt-2 text-sm text-muted-foreground sm:text-base">{hasRecentWork ? "What would you like to work on next?" : "What can I help you with?"}</p>
           </motion.div>
 
           {/* Floating AI command surface */}
@@ -716,7 +717,7 @@ export function Dashboard() {
               Recent Activity
             </h2>
             <Link to="/history" className="flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:underline">
-              View all <ArrowRight className="h-3 w-3" />
+              View history <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           {loading ? (
@@ -783,10 +784,10 @@ export function Dashboard() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            Recent Conversations
+            Continue your work
           </h2>
           <Link to="/history" className="flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:underline">
-            View all <ArrowRight className="h-3 w-3" />
+            View history <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
         {loading ? (
