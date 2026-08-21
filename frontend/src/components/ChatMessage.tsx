@@ -61,7 +61,7 @@ SyntaxHighlighter.alias("markup", ["html", "xml"]);
 SyntaxHighlighter.alias("cpp", ["c++"]);
 SyntaxHighlighter.alias("csharp", ["cs"]);
 SyntaxHighlighter.alias("markdown", ["md"]);
-import { Volume2, Loader2, Square, ChevronUp, Copy, Check, User } from "lucide-react";
+import { Volume2, Loader2, Square, ChevronUp, Copy, Check, User, RefreshCw } from "lucide-react";
 import { NexusCore } from "@/components/ui/nexus-core";
 import { cn } from "@/utils/cn";
 import { getLangColor } from "@/utils/languageColors";
@@ -79,6 +79,8 @@ interface ChatMessageProps {
   thinking?: boolean;
   /** Streamed reasoning text during the thinking phase (transient, never persisted). */
   reasoning?: string;
+  /** Called when the user clicks "Regenerate" on an assistant message. */
+  onRegenerate?: () => void;
 }
 
 interface VoiceOption {
@@ -86,7 +88,7 @@ interface VoiceOption {
   label: string;
 }
 
-export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: ChatMessageProps) {
+export function ChatMessage({ message, replayLang, meta, thinking, reasoning, onRegenerate }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [fetching, setFetching] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -351,6 +353,17 @@ export function ChatMessage({ message, replayLang, meta, thinking, reasoning }: 
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
+              {!isUser && onRegenerate && (
+                <button
+                  type="button"
+                  onClick={onRegenerate}
+                  aria-label="Regenerate response"
+                  title="Regenerate response"
+                  className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              )}
               {replayLang && (
                 <div className="relative flex items-center gap-1">
                   {replayLang !== "en" && (

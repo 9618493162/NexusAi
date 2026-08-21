@@ -647,6 +647,25 @@ export function Chat() {
     await sendMessage(input);
   };
 
+  // ── Regenerate: remove the last assistant message and re-send the last user message ──
+  const handleRegenerate = async () => {
+    if (loading) return;
+    // Find the last user message
+    const lastUserIdx = [...messages].reverse().findIndex((m) => m.role === "user");
+    if (lastUserIdx === -1) return;
+    const lastUserMsg = [...messages].reverse()[lastUserIdx];
+    // Remove the last assistant message if it follows the last user message
+    setMessages((prev) => {
+      const lastIdx = prev.length - 1;
+      if (lastIdx >= 0 && prev[lastIdx].role === "assistant") {
+        return prev.slice(0, lastIdx);
+      }
+      return prev;
+    });
+    // Re-send the last user message
+    await sendMessage(lastUserMsg.content);
+  };
+
   // ── Saved-prompt insertion ─────────────────────────────────────────────
   const openPromptPicker = () => {
     if (recording) return; // don't interrupt live dictation
@@ -962,6 +981,7 @@ export function Chat() {
                 replayLang={message.language || speakLang}
                 thinking={assistantThinking && message.id === (messages[messages.length - 1]?.id)}
                 reasoning={message.id === (messages[messages.length - 1]?.id) ? assistantReasoning : ""}
+                onRegenerate={!loading && message.role === "assistant" && message.id === messages[messages.length - 1]?.id ? handleRegenerate : undefined}
               />
             ))}
           </div>
