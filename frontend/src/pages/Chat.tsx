@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Square, Paperclip, Sparkles, Loader2, X, ArrowLeft, Plus, Mic, Volume2, VolumeX, Globe, Search, Languages, Brain, Bookmark, Check, CornerDownLeft, MessageSquare } from "lucide-react";
+import { Send, Square, Paperclip, Sparkles, Loader2, X, ArrowLeft, Plus, Mic, Volume2, VolumeX, Globe, Search, Languages, Brain, Bookmark, Check, CornerDownLeft, MessageSquare, Image as ImageIcon, FileText } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { PromptPicker } from "@/components/ui/prompt-picker";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,13 @@ export function Chat() {
   const [uploading, setUploading] = useState(false);
   // The uploaded file's real id — the backend retrieves its extracted text
   // as context (ownership-checked), so the browser never inlines it.
-  const [attachedFile, setAttachedFile] = useState<{ name: string; size: number; id: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; size: number; id: string; previewUrl?: string } | null>(null);
+  // Drag-and-drop state for file/image drops onto the composer.
+  const [dragOver, setDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
+  // Attachment menu dropdown.
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
   // Saved-prompt insertion (Cmd/Ctrl+Shift+P): the caret position is captured
   // when the picker opens so the chosen prompt lands exactly where the user
   // was typing.
@@ -777,7 +783,8 @@ export function Chat() {
     setError("");
     try {
       const { data } = await fileService.upload(file, conversationId);
-      setAttachedFile({ name: data.originalName, size: file.size, id: data.id });
+      const isImage = file.type.startsWith("image/");
+      setAttachedFile({ name: data.originalName, size: file.size, id: data.id, previewUrl: isImage ? URL.createObjectURL(file) : undefined });
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || "File upload failed";
       console.error("File upload error:", err);
@@ -785,6 +792,74 @@ export function Chat() {
     } finally {
       abortControllerRef.current = null;
       setUploading(false);
+    }
+  };
+
+  // ── Drag-and-drop: highlight composer on drag-enter, upload on drop ──
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) setDragOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) { setDragOver(false); dragCounterRef.current = 0; }
+  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setDragOver(false); dragCounterRef.current = 0;
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { setError("File is too large. Maximum size is 50MB."); return; }
+    setUploading(true); setError("");
+    fileService.upload(file, conversationId).then(({ data }) => {
+      const isImage = file.type.startsWith("image/");
+      setAttachedFile({ name: data.originalName, size: file.size, id: data.id, previewUrl: isImage ? URL.createObjectURL(file) : undefined });
+    }).catch((err: any) => {
+      setError(err.response?.data?.error || err.message || "File upload failed");
+    }).finally(() => { setUploading(false); });
+  };
+
+  // ── Clipboard paste: Ctrl/Cmd+V with an image on the clipboard ──
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file || file.size > 50 * 1024 * 1024) { setError("Image too large (max 50MB)."); return; }
+        setUploading(true); setError("");
+        fileService.upload(file, conversationId).then(({ data }) => {
+          setAttachedFile({ name: data.originalName || file.name, size: file.size, id: data.id, previewUrl: URL.createObjectURL(file) });
+        }).catch((err: any) => {
+          setError(err.response?.data?.error || err.message || "Image upload failed");
+        }).finally(() => { setUploading(false); });
+        break;
+      }
+    }
+  }, [conversationId]);
+
+  // ── Attachment menu: click-outside to close ──
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) setAttachMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick, { passive: true });
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [attachMenuOpen]);
+
+  // ── Trigger file input with specific accept filter ──
+  const triggerFileInput = (accept?: string) => {
+    setAttachMenuOpen(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.accept = accept || "*/*";
+      fileInputRef.current.click();
     }
   };
 
@@ -990,8 +1065,24 @@ export function Chat() {
               <Check className="h-3.5 w-3.5" /> {promptSavedWasUpdate.current ? "Prompt updated" : "Prompt saved"}
             </motion.div>
           )}
-          <div className="rounded-2xl bg-gradient-to-b from-border via-border/60 to-border/20 p-px shadow-float">
-            <div className="surface-glow rounded-2xl bg-card/90 p-3.5 backdrop-blur-md transition-shadow duration-200 sm:p-4">
+          <div className="rounded-2xl bg-gradient-to-b from-border via-border/60 to-border/20 p-px shadow-float relative">
+            <div
+              className={cn("surface-glow rounded-2xl bg-card/90 p-3.5 backdrop-blur-md transition-shadow duration-200 sm:p-4 relative", dragOver && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background")}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+            {/* Drag-drop overlay */}
+            <AnimatePresence>
+              {dragOver && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary/50 bg-primary/10 backdrop-blur-sm">
+                  <Paperclip className="mb-2 h-8 w-8 text-primary/70" />
+                  <p className="text-sm font-medium text-primary">Drop to attach</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Image or file up to 50MB</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           {error && (
             <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
               <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-destructive" />
@@ -1001,16 +1092,22 @@ export function Chat() {
 
           {attachedFile && (
             <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-primary/25 bg-primary/8 px-3.5 py-2.5 text-sm">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                <Paperclip className="h-4 w-4" />
-              </div>
+              {attachedFile.previewUrl ? (
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border/50">
+                  <img src={attachedFile.previewUrl} alt={attachedFile.name} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  <FileText className="h-4 w-4" />
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{attachedFile.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {attachedFile.size < 1024 ? `${attachedFile.size} B` : `${(attachedFile.size / 1024).toFixed(1)} KB`} · content will be included as context
+                  {attachedFile.size < 1024 ? `${attachedFile.size} B` : `${(attachedFile.size / 1024).toFixed(1)} KB`} · {attachedFile.previewUrl ? "image will be sent with your message" : "content will be included as context"}
                 </p>
               </div>
-              <button type="button" onClick={() => setAttachedFile(null)} className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary" aria-label="Remove attached file">
+              <button type="button" onClick={() => { if (attachedFile.previewUrl) URL.revokeObjectURL(attachedFile.previewUrl); setAttachedFile(null); }} className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary" aria-label="Remove attached file">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1167,9 +1264,23 @@ export function Chat() {
               recording ? "border-red-500/50 ring-2 ring-red-500/20" : "border-border/80 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15"
             )}>
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Attach a file" aria-label="Attach a file" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
-                {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.9} />}
-              </button>
+              <div className="relative" ref={attachMenuRef}>
+                <button type="button" onClick={() => setAttachMenuOpen((v) => !v)} disabled={uploading} title="Attach a file or image" aria-label="Attach a file or image" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
+                  {uploading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+                </button>
+                <AnimatePresence>
+                  {attachMenuOpen && (
+                    <motion.div initial={{ opacity: 0, y: 4, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.96 }} transition={{ duration: 0.15 }} className="absolute bottom-full left-0 mb-2 w-52 overflow-hidden rounded-xl border border-border bg-card shadow-xl z-50">
+                      <button type="button" onClick={() => triggerFileInput()} className="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-accent">
+                        <FileText className="h-4 w-4 text-primary" /> <span>Upload file</span>
+                      </button>
+                      <button type="button" onClick={() => triggerFileInput("image/*")} className="flex w-full items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-accent">
+                        <ImageIcon className="h-4 w-4 text-pink-500" /> <span>Upload image</span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               {voiceSupported && (
                 <button
                   type="button"
@@ -1222,6 +1333,7 @@ export function Chat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
+                onPaste={handlePaste}
                 placeholder={recording ? "Listening... speak now" : "Message NexusAI..."}
                 aria-label="Message NexusAI"
                 rows={1}
