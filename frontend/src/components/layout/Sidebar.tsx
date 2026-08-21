@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useAuthStore } from "@/store/auth.store";
 import {
   LayoutDashboard, MessageSquare, Bot, Image, Video, Mic, FileText, Brain,
-  History, Star, BarChart3, Settings, LogOut, ChevronLeft, Sparkles, X, Cpu, FolderKanban, Video as VideoIcon, Workflow as WorkflowIcon, Database, Compass, FileText as DocIcon, TrendingUp, Plug,
+  History, Star, BarChart3, Settings, LogOut, ChevronLeft, Sparkles, X, Cpu, FolderKanban, Video as VideoIcon, Workflow as WorkflowIcon, Database, Compass, FileText as DocIcon, TrendingUp, Plug, CreditCard,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Tooltip } from "./Tooltip";
@@ -173,6 +173,17 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
           </div>
         )}
         <div className={cn("flex gap-1", collapsed && "flex-col")}>
+          <Link
+            to="/billing"
+            className={cn(
+              "flex flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              collapsed && "justify-center px-0"
+            )}
+            title={collapsed ? "Billing" : undefined}
+          >
+            <CreditCard className="h-[18px] w-[18px] shrink-0 text-muted-foreground" strokeWidth={1.8} />
+            {!collapsed && <span>Billing</span>}
+          </Link>
           <Link
             to="/integrations"
             className={cn(

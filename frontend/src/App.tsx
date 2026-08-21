@@ -29,6 +29,7 @@ const UniversalCommandCenter = lazy(() => import("@/pages/UniversalCommandCenter
 const ModelManager = lazy(() => import("@/pages/ModelManager").then((m) => ({ default: m.ModelManager })));
 const Settings = lazy(() => import("@/pages/Settings").then((m) => ({ default: m.Settings })));
 const Integrations = lazy(() => import("@/pages/Integrations").then((m) => ({ default: m.Integrations })));
+const Billing = lazy(() => import("@/pages/Billing").then((m) => ({ default: m.Billing })));
 const Profile = lazy(() => import("@/pages/Profile").then((m) => ({ default: m.Profile })));
 const Search = lazy(() => import("@/pages/Search").then((m) => ({ default: m.Search })));
 const Onboarding = lazy(() => import("@/pages/Onboarding").then((m) => ({ default: m.Onboarding })));
@@ -130,6 +131,7 @@ export default function App() {
             <Route path="/models" element={<PrivateRoute><ModelManager /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
             <Route path="/integrations" element={<PrivateRoute><Integrations /></PrivateRoute>} />
+            <Route path="/billing" element={<PrivateRoute><Billing /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
             <Route path="/memory" element={<PrivateRoute><Memory /></PrivateRoute>} />
